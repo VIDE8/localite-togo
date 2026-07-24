@@ -361,13 +361,7 @@
             }
         }
     </style>
-
-</head>
-
-<body>
-    <div class="flag-frame">
-    <div class="card">
-        <span class<script>
+<script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(console.error);
@@ -375,7 +369,11 @@
     }
     </script>
 </head>
-<body>="togo-flag" title="Drapeau du Togo">
+
+<body>
+    <div class="flag-frame">
+    <div class="card">
+        <span class="togo-flag" title="Drapeau du Togo">
             <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
                 <rect width="300" height="200" fill="#ffce00" />
                 <rect width="300" height="40" y="0" fill="#006a4e" />
