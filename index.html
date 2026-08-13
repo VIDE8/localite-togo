@@ -351,19 +351,6 @@
             overflow: hidden;
         }
 
-        /* Responsive : la ligne horizontale (input + bouton côte à côte) ne
-           s'applique qu'aux vrais écrans larges avec souris (desktop).
-           Sur un téléphone tactile, même si le viewport est mal calculé,
-           on reste toujours en colonne pour garder les suggestions en dessous. */
-        @media (min-width: 600px) and (hover: hover) and (pointer: fine) {
-            .search-box {
-                flex-direction: row;
-            }
-
-            button {
-                width: auto;
-            }
-        }
     </style>
 <script>
     if ('serviceWorker' in navigator) {
