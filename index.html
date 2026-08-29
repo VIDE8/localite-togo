@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Rechercher ma Localité au Togo</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#22c55e">
+   
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <style>
+        /* Polices */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+
+        :root {
+            --bg-deep: #0f172a;
+            --bg-mid: #1e293b;
+            --card-bg: #111c2e;
+            --border: #263449;
+            --input-bg: #0b1120;
+            --accent: #22c55e;
+            --accent-dark: #16a34a;
+            --accent-soft: #4ade80;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+
+            /* Couleurs du drapeau togolais */
+            --togo-green: #006a4e;
+            --togo-yellow: #ffce00;
+            --togo-red: #d21034;
+            --togo-white: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at top, var(--bg-mid) 0%, var(--bg-deep) 100%);
+            color: var(--text-main);
+            text-align: center;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        /* Cadre extérieur aux couleurs du drapeau togolais
+           5 bandes horizontales vert/jaune (dans l'ordre du drapeau)
+           + canton rouge à étoile blanche en haut à gauche */
+        .flag-frame {
+            width: 100%;
+            max-width: 416px;
+            padding: 7px;
+            border-radius: 26px;
+            position: relative;
+            background: linear-gradient(180deg,
+                    var(--togo-green) 0%,
+                    var(--togo-green) 20%,
+                    var(--togo-yellow) 20%,
+                    var(--togo-yellow) 40%,
+                    var(--togo-green) 40%,
+                    var(--togo-green) 60%,
+                    var(--togo-yellow) 60%,
+                    var(--togo-yellow) 80%,
+                    var(--togo-green) 80%,
+                    var(--togo-green) 100%);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+            animation: cardAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+        }
+
+        /* Canton rouge + étoile, positionné comme sur le vrai drapeau (haut-gauche) */
+        .flag-frame::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 38%;
+            height: 42%;
+            background: var(--togo-red);
+            border-radius: 26px 0 0 0;
+            z-index: 1;
+        }
+
+        .flag-frame::after {
+            content: "\2605";
+            position: absolute;
+            top: 13%;
+            left: 13%;
+            color: var(--togo-white);
+            font-size: 22px;
+            line-height: 1;
+            z-index: 2;
+        }
+
+        /* Animation d'entrée pour la carte */
+        .card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            position: relative;
+            z-index: 5;
+        }
+
+        /* Petit drapeau du Togo affiché en en-tête */
+        .togo-flag {
+            width: 64px;
+            height: 43px;
+            margin: 0 auto 14px;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.15);
+            display: block;
+        }
+
+        .togo-flag svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        @keyframes cardAppear {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Titre avec Dégradé */
+        h2 {
+            text-align: center;
+            font-size: 22px;
+            margin: 0 0 8px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-soft));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: titleSlide 1s ease forwards;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            animation: titleSlide 1.2s ease forwards;
+        }
+
+        .stats-bar {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-soft);
+            margin-bottom: 22px;
+            animation: titleSlide 1.3s ease forwards;
+        }
+
+        @keyframes titleSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Barre recherche stylisée */
+        .search-box {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+        }
+
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 16px 16px 16px 46px;
+            border-radius: 12px;
+            border: 2px solid var(--bg-mid);
+            background-color: var(--input-bg);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: 16px center;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.25);
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: white;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-row button {
+            flex: 1;
+        }
+
+        .btn-secondary {
+            background: transparent !important;
+            border: 2px solid var(--togo-yellow) !important;
+            color: var(--togo-yellow) !important;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(255, 206, 0, 0.3) !important;
+        }
+
+        /* Listes déroulantes partagées (suggestions + résultats multiples) */
+        #suggestions,
+        #matches {
+            margin-top: 8px;
+            padding: 0;
+            list-style: none;
+            background: var(--bg-deep);
+            border-radius: 12px;
+            display: none;
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+
+        #suggestions li,
+        #matches li {
+            padding: 12px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--bg-mid);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #suggestions li:last-child,
+        #matches li:last-child {
+            border-bottom: none;
+        }
+
+        #suggestions li:hover,
+        #matches li:hover {
+            background: var(--bg-mid);
+            color: var(--accent-soft);
+        }
+
+        #matches li span {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        #matches li:hover span {
+            color: var(--accent-soft);
+            opacity: 0.8;
+        }
+
+        /* Résultat ultra-propre */
+        #resultat {
+            margin-top: 20px;
+            padding: 25px;
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.75), rgba(11, 17, 32, 0.85));
+            border: 1px solid rgba(255, 206, 0, 0.25);
+            box-shadow: 0 0 0 1px rgba(0, 106, 78, 0.35) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
+            display: none;
+            text-align: center;
+            animation: resultPop 0.5s cubic-bezier(0.17, 0.89, 0.32, 1.49);
+        }
+
+        @keyframes resultPop {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .info-group {
+            padding: 6px 14px;
+            border-radius: 10px;
+            border-left: 4px solid var(--togo-green);
+        }
+
+        .info-group:nth-of-type(2n) {
+            border-left-color: var(--togo-yellow);
+        }
+
+        .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--togo-yellow);
+            margin-bottom: 5px;
+            text-align: left;
+        }
+
+        .value {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--text-main);
+            text-align: left;
+        }
+
+        .highlight {
+            display: block;
+            color: var(--accent-soft);
+            font-size: 26px;
+            font-weight: 800;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(74, 222, 128, 0.45);
+        }
+
+        /* Carte */
+        .map-status {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 14px 0 8px;
+            display: none;
+        }
+
+        #map {
+            display: none;
+            height: 220px;
+            border-radius: 12px;
+            border: 1px solid var(--togo-yellow);
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        /* Bouton flottant "Contact / Suggestion" */
+        .contact-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+
+        .contact-fab:hover {
+            transform: scale(1.08);
+        }
+
+        .contact-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .contact-overlay.open {
+            display: flex;
+        }
+
+        .contact-modal {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-top: 4px solid var(--togo-yellow);
+            border-radius: 20px 20px 0 0;
+            padding: 28px 24px 34px;
+            position: relative;
+            text-align: center;
+            animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .contact-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .contact-modal h3 {
+            margin: 0 0 20px;
+            font-size: 17px;
+            color: var(--text-main);
+        }
+
+        .contact-row {
+            margin-bottom: 14px;
+        }
+
+        .contact-row a {
+            color: var(--accent-soft);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .contact-row a:hover {
+            text-decoration: underline;
+        }
+
+        .contact-close {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 26px;
+            line-height: 1;
+            width: auto;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .contact-close:hover {
+            color: var(--text-main);
+            transform: none;
+            box-shadow: none;
+        }
+
+    </style>
+<script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      });
+    }
+
+    function toggleContact(show) {
+        document.getElementById('contact-overlay').classList.toggle('open', show);
+    }
+    </script>
+</head>
+
+<body>
+    <div class="flag-frame">
+    <div class="card">
+        <span class="togo-flag" title="Drapeau du Togo">
+            <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#ffce00" />
+                <rect width="300" height="40" y="0" fill="#006a4e" />
+                <rect width="300" height="40" y="80" fill="#006a4e" />
+                <rect width="300" height="40" y="160" fill="#006a4e" />
+                <rect width="120" height="120" fill="#d21034" />
+                <polygon fill="#ffffff" points="60,20 71,54 107,54 78,75 89,109 60,88 31,109 42,75 13,54 49,54" />
+            </svg>
+        </span>
+        <h2>RECHERCHER MA LOCALITÉ AU TOGO</h2>
+        <p class="subtitle">Région · Préfecture · Commune · Canton</p>
+        <p id="stats-bar" class="stats-bar"></p>
+        <div class="search-box">
+            <input type="text" id="champ" placeholder="Entrez le nom de la Localité..." autocomplete="off">
+            <div class="btn-row">
+                <button onclick="valider()">🔍 OK</button>
+                <button class="btn-secondary" onclick="rechercherEtVoirCarte()">🗺️ Carte</button>
+            </div>
+            <ul id="suggestions"></ul>
+        </div>
+
+        <ul id="matches"></ul>
+
+        <div id="resultat">
+            <div class="info-group">
+                <div class="label">Localité précise</div>
+                <div id="res-loc" class="value highlight"></div>
+            </div>
+            <div class="info-group">
+                <div class="label">Région </div>
+                <div id="res-r" class="value"></div>
+            </div>
+            <div class="info-group">
+                <div class="label">Préfecture </div>
+                <div id="res-p" class="value"></div>
+            </div>
+            <div class="info-group">
+                <div class="label">Commune </div>
+                <div id="res-c" class="value"></div>
+            </div>
+            <div class="info-group">
+                <div class="label">Canton </div>
+                <div id="res-can" class="value"></div>
+            </div>
+            <p id="map-status" class="map-status"></p>
+            <div id="map"></div>
+        </div>
+    </div>
+    </div>
+
+    <button id="contact-fab" class="contact-fab" onclick="toggleContact(true)" title="Suggestion / Contact">ℹ️</button>
+
+    <div id="contact-overlay" class="contact-overlay" onclick="toggleContact(false)">
+        <div class="contact-modal" onclick="event.stopPropagation()">
+            <button class="contact-close" onclick="toggleContact(false)" aria-label="Fermer">&times;</button>
+            <div class="contact-icon">🗺️</div>
+            <h3>Pour toute suggestion, amélioration</h3>
+            <div class="contact-row">
+                <a href="mailto:kossivide8@gmail.com">📧 kossivide8@gmail.com</a>
+            </div>
+            <div class="contact-row">
+                <a href="tel:+22897654201">📞 +228 97 65 42 01</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ============================================================
+           ZONE D'INSERTION DES DONNÉES (baseTogo)
+           Ajoutez vos lignes ici en respectant bien les virgules.
+           ============================================================ */
+        const baseTogo = [
+
+
+
+            // --- RÉGION DES SAVANES ---
+
+
+
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 1", can: "BIANKOURI", locs: "Tonga, Sawardjoaga I, Sawardjoaga II, Gabongbongue, Kong, Nambeautibe, Kalao, Kangbé, Kangetchoake, Yoakpate, Samomoni, Gbatemanou, Mampoate-Moba, Mampoatemossi, Dontougou, Garo, Gnapoug, Kpindjiame, Gnakpoung, Mampoate, Nambiuitite, Tonga Centre" },
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 1", can: "BOADE", locs: "Boadé-Centre, Gangai, Gangaii, Horiwouri, Kassou, Zintango, Korenzoaga, Napougo, Sandoga, Zoamissi, Godozoagao II, Kodozoaga 1, Wouri-Wouri, Boade, Ganga" },
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 1", can: "CINKASSE", locs: "Cinkassé-Centre, Kodago, Tampilego, Komiloiga, Karbiegai, Karbiegaii, Yiego, Bargone, Pissosgo, Silmissi, Tantchigo, Segnabin, Boussanga, Gbatimanou, Mossi, Natinga, Pengdwende, Pizosgo, Simbin-Komologo, Tagnitchiegou, Cinkasse, Komologou, Kpalbiague, Pogyogo" },
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 1", can: "NOAGA", locs: "Gnoaga Centre, Koupelgou, Ganga, Wanre, Yikoutin, Bingoula, Gnoaga Mossi, Gnoaga" },
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 1", can: "GOULOUNGOUSSI", locs: "Gouloungoussi Centre, Koknogo, Zoumbéko, Kontonyobi, Koultamssé, Kodizoaga" },
+
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 2", can: "NADJOUNDI", locs: "Nadjoundi-Centre, Nadjoundi, Nadjoundoré, Pilougou Bola, Timangue, Balikpergou, Batpotcha, Nansongue, Djéguene, Matiga, Boaname, Nabidjoal, Monba, Kouadgangbangou, Natone, Bondantchale, Todjengue, Nanlogue, Mambagou, Pilougou-Centre, Pilougou-Goudo, Bankatmoaga, Yarbongbangou, Nansongue-Palmangue, Tintodiguine I, Tintodiguine Babigou, Zongo, Babidjoare, Babigou, Fanwargou, Nassongue, Pilougou" },
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 2", can: "SAMNABA", locs: "Samnaba, Babigou, Gaboni, Namoudjoate, Nassiegou, Safobé, Pizosga, Banbongue, Karbouk, Tintarguine, Bondantchale" },
+            { r: "Savanes", p: "Cinkassé", c: "Cinkassé 2", can: "TIMBOU", locs: "Timbou Centre, Yorgou, Nassable, Soukoudoume, Sankargou, Lonlongou, Datoulonte, Nalongue, Bindantchal, Tchimbiagbongue, Karmontongue, Kponguedjore, Tabi, Garo, Tamondjore, Kalagou, Djalontougou, Kondjore II, Kpalmatong, Loulong, Natinga, Datolonte, Gnangbong, Karmantong, Kpondjoare, Liyietielou, Tamondjoare, Toaumeostndjoare" },
+
+            { r: "Savanes", p: "Tône", c: "Tône 1", can: "BIDJENGA", locs: "Bidjenga-Centre, Pantogou, Wakpelogou, Endegou, Nakperkangue, Padoane, Tambingue, Naboal, Touangou, Gbanwague, Kamelagou, Nadiegou, Kombiabagou, Dabogou, Biegou, Boumone, Babogou, Djondjongou, Ganloré, Tambimongue, Kpambone, Djabargou, Bouasé, Bidjenda, Kolg, Yendong, Kpadoine, Tambigue" },
+            { r: "Savanes", p: "Tône", c: "Tône 1", can: "DAPAONG", locs: "Quartiers Administratifs, Bogliègue, Bodjopal, Boumonga, Didagou, Goague, Kampatibe, Kpégui, Kombondjonte, Komkoaré, Kombonloaga, Koutdjoak, Nalolgue, Natbagou, Napiengue, Tantigou, Worgou, Tomone, Zongo, Nassablé, Kountong-Bong, Karsome, Dapankergou, Nadégré, Dalwak, Koni, Sibortoti, Dapaong, Koboato, Bantamboaré, Towag-Djoal, Djakpernague, Tantigou-Barrage, Kongbane, Kpakoate, Kpargou, Boukougue, Badoré, Nagnongou, Napiembougue, Djangou, Kpébona, Djabargou, Nakpagli, Nakorgou, Karyata, Babona I, Babona II, Tangbaré, Tangbangou, Dampiong, Kpendjaga, Nagbong, Taninkaog, Tantoatre I, Tantoatre II, Nanoume, Kambéle, Tidonte, Boal, Sanfatoute I, Sanfatoute II, Woualouag, Djapiéni, Dalagou, Gnoumpiong, Kpong, Kinkandjengue, Yemboate, Kpatchiate, Nadjou, Gnoumbong, Bongongona, Nagbandja, Gnalibagou, Gouwong, Tambaong, Babona, Dapankpergou, Nagbongou, Napiembougou, Napieng, Tanikaog" },
+            { r: "Savanes", p: "Tône", c: "Tône 1", can: "KOURIENTRE", locs: "Kourientré-Centre, Kpatoti, Dalagou I, Tchiégle, Bolimpiegue, Kpong Bougou, Babigou Kama(Communauté Peuhl), Kpong(Communauté Yanga), Mendankoane, Kankadjengue, Kpegbongue, Natigou, Yambangbong, Dalagou, Kpatote, Kpong, Tchiegle 2" },
+            { r: "Savanes", p: "Tône", c: "Tône 1", can: "PANA", locs: "Pana Centre, Batemon, Boundjoaré, Koumbogou, Kounkoagou, Koutone Molbagou, Naloague, Pana-Bagou, Pologou, Tabiele, Tchindigue, Tierou Wandjoague, Tambigou, Ganlore, Nabangou, Yok, Nadiegou, Tampiena, Molbagou, Polougou, Tierou" },
+            { r: "Savanes", p: "Tône", c: "Tône 1", can: "POISSONGUI", locs: "Poissongui Centre, Bola, Djakpaga, Dindengue, Djassakte, Sankargou, Djaglekoine, Bankadimoaga, Djakpanga, Poissongui, Talguibounte" },
+            { r: "Savanes", p: "Tône", c: "Tône 1", can: "TOAGA", locs: "Toaga Centre, Tchiarkoumbona I Et II, Namongou, Tanmontchale, Timanga, Bounkongue, Tanlotre, Napale, Kpeguidjini, Sanlegdjimoni, Sidiki, Toaga" },
+            { r: "Savanes", p: "Tône", c: "Tône 1", can: "NATIGOU", locs: "Bougou, Margba, Matiga, Natigou, Natigou-Timanga, Tidjoate" },
+
+            { r: "Savanes", p: "Tône", c: "Tône 2", can: "NAKI OUEST", locs: "Naki-Ouest Centre, Farehangue, Gabongbang, Naboagbane, Tanlona, Kariata, Datoudjena, Logodé, Kpatchiangbane, Sintoti, Tinganyouré/Palate, Djéwougou, Dontougou, Bassoudougou, Nakorgou, Wagouhague, Tchandana, Nampante, Namongue, Nakortantiali, Nakpali, Natchion-Koine, Gbalnhague, Nayengue, Konkomoni, Loguede, Djewougue, Gabongbong, Palate, Simtoti, Tchadana" },
+            { r: "Savanes", p: "Tône", c: "Tône 2", can: "NAMARE", locs: "Namaré Centre, Bouyéme, Biankouri, Kongobouni, Kongo, Kpakoate, Moba, Liyatialou, Yobre, Kpantetangue, Nabadjoani, Tanhali, Nandjak, Tchankoukongue, Mossi, Yalbongbongue, Filingbongue, Sabliani, Boueyeme, Kongo Moba, Kongo-Mossi, Namare, Nandjak 1, Ng" },
+            { r: "Savanes", p: "Tône", c: "Tône 2", can: "NANERGOU", locs: "Nanergou Centre, Koussongou, Toutougou, Séosambiani, Mordoak, Namondougba, Naboulpiogue, Djapiéni, Kambéli, Nayéne, Babogou, Kambere, Mordjoak, Nanergou" },
+
+            { r: "Savanes", p: "Tône", c: "Tône 3", can: "WARKAMBOU", locs: "Warkambou Centre, Kolbigou, Sogoubogou, Bongdoure, Tambisgou, Nabonga, Badouak (Kpinkparbagou), Warkambou Haut, Kolbique, Warkambou Bas" },
+            { r: "Savanes", p: "Tône", c: "Tône 3", can: "LOTOGOU", locs: "Lotogou-Centre, Mamboulik, Koukdagou, Dassoute–Bagou, Namongou, Tampiante, Poimongue, Magou, Nanik, Dassoutecentre, Goussiesse I, Goussiesse II, Goussiesse III, Magou II, Magou III, Pokpera, Nagdate II, Fiankouloukt, Nagdate I, Namongue-Yame, Dassoute-Kounkogue I, Dassoute-Kounkogue II, Bafong Djamoni, Barkok Dakokdoure, Tchangui, Nanik-Pagpo, Balkok, Boutassoudougou, Dassoute, Djamoni, Goussiesse, Manboulk, Nagdate, Namongue" },
+            { r: "Savanes", p: "Tône", c: "Tône 3", can: "NIOUKPOURMA", locs: "Nioukpourma Centre, Goani Kourdjoak, Mandime Nagré, Gbatanague, Nakpatangue, Wangante, Djamiare Sambona, Nampante, Gnongou, Toulongue, Djakpernague, Nagbangou I, Nagbangou II, Yanyane I, Yanyane II, Nakpin I, Nakpin II, Toumangue, Gouani, Yenyane, Djamiere, Kourdjoak, Mandime, Nacre II, Nioukpourma, Toulonga, Wagante" },
+            { r: "Savanes", p: "Tône", c: "Tône 3", can: "TAMI", locs: "Tami Centre, Namountimpiong, Gbengbentcha, Kolmati, Konkongue, Konkonmongue, Koukdagou, Mandjoak, Nabaogbane, Nagré, Natcharé, Naguiyégou, Poamongue, Sabeliani, Soalmougue, Tanlogue, Toupiogue, Tonte, Touguibème, Wangbane, Koukongbane, Konkongou, Kougdagou, Koulmassi, Naboagbane, Naguiyiok, Sabliani, Tanlongue" },
+
+            { r: "Savanes", p: "Tône", c: "Tône 4", can: "SANFATOUTE", locs: "Sanfatoute I, Sanfatoute II, Boale, Idondjoak, Nansongue, Waldjoague, Yemboate, Gnobitchade, Kalmame, Kpatchiate, Sanfatoute, Tidonte, Waloag" },
+            { r: "Savanes", p: "Tône", c: "Tône 4", can: "KANTINDI", locs: "Kantindi-Centre, Nabatiga, Yemboate, Margba, Opotigou, Baganme, Obitenligou III, Namboga, Bagname-Kantindi, Boale, Gnoumbongou, Peguidjini III, Nakolgou, Naloate I, Kabilagou II, Tidonte II, Tidonte-Momba, Tidonte, Sanfatoute, Kabilagou, Dakpante I, Kpeguidjini I, Kpeguidjini II, Topienga, Tchiegre, Kpambona, Oubitenligou I, Oubitenligou II, Nignassang, Otchimbiangou, Dakpante II, Nadjou, Nambonga-Bas, Nambonga-Haut, Bagname-, Bsaagnfnaatmoeu-Te, Dakpante, Dsaankpfaatnoteute, Ignassang, Oubitenigou" },
+            { r: "Savanes", p: "Tône", c: "Tône 4", can: "KORBOGOU", locs: "Korbogou Centre, Tchabigou, Gbargou, Gbangbagou, Galé, Topienga, Tankomonte I, Tankomonte II, Tankpagli, Tingbangbale, Tidonte I, Tiale, Oulongou, Tankomonte III, Afounga, Boale-Centre, Bagname, Okankpénan, Gbangbangou, Sanfatoute, Dampiégou, Déguimonle, Lipiakoule, Pkompibonga, Kpéguidjini, Kpatchiade, Nadjou-Tomonle, Mitcbiébe-Gbangbagou, Sanfatoute II, Tantoga III, Tantoga-Nansongue, Yemkome, Nagnimaré, Outoupodougou, Oubitéligou, Onabag-Gbangbagou, Piakoul-Omaa, Gbangou, Gondjoaga II, Groupement-Mossi, Groupement-Zongo, Kanlogue, Kaliyata, Naloate I, Naloate II, Kpendjaga, Ligbatré, Goandjoaga, Tantoga-Centre, Deguimone, Dgjbaomnognbgo-Ng, Djamong-, Ggabloengbong, Kariyata, Korbongou Centre, Nadjou, Naloate-Tolong, Nansongue, Piakoule, Tankomonte, Tontoga-Nagnimare" },
+            { r: "Savanes", p: "Tône", c: "Tône 4", can: "LOUANGA", locs: "Louanga-Centre, Louanga I, Louanga II, Tomonle I, Tomonle II, Tantoga I, Tantoga II, Kalmame, Nabagou, Gnobtchade, Oubiate, Oubiagou, Tomone, Djab-Deni, Louanga, Sankargbongbong, Tantoga" },
+
+            { r: "Savanes", p: "Kpendjal", c: "Kpendjal 1", can: "MANDOURI", locs: "Djatinga, Donga, Kpandimagou, Koula, Mondofoali, Pebili, Sassiega, Moukaga, Nakpafoaga, Taro Zongo, Nannagrigou, Timbendi, Djouatou, Tolongou I, Tolongou II, Tiwoli, Tola, Lalabiga, Tchanfendeni, Sougoutangou, Kpantali, Mandouri, Kpakparga, Kpakounga, Inamounfale, Gniengou, Djantchogou, Tindandeni, Bagre-Tantchal, Bagre-Kouampante, Bagre-Tambima, Bagre, Tolongou" },
+            { r: "Savanes", p: "Kpendjal", c: "Kpendjal 1", can: "TAMBIGOU", locs: "Bantigou, Barwaga, Brougou, Douanli, Koumpali, Outchindigou, Kpengnagou, Panseri, Kpentinga, Tambigou, Tcharkpanga, Timmonga, Wandigou, Kamou, Jal" },
+            { r: "Savanes", p: "Kpendjal", c: "Kpendjal 1", can: "KOUNTOIRE", locs: "Ayikpere, Panga, Fienga, Kangounou, Kokou Bossou, Tchankpe Bossou, Nalakou, Samti, Bonfossou, Chiranda, Namati, Kounkounkpe, Danhaka, Satihigou, Songbal, Naboli, Kountoire, Kountoire-Centre, Batcheboussou, Dannaga, Epc Panga, Kountoare" },
+            { r: "Savanes", p: "Kpendjal", c: "Kpendjal 2", can: "BORGOU", locs: "Bombemgou, Saguidjoaga, Teliga, Kpentendjoaga, Borgou, Bouldjoare, Enamoufale, Djabonfale, Djibonle, Kontenga, Yiagou, Yagmou Wogou, Walgou, Momba, Naltenou, Yanyane, Natchambonga, Natongou I, Natongou II, Nassieli, Todjena, Kpaporga, Bombengou, Borgou - Centre, Gbantchale, Kpintindjoaga, Maldjoare, Nalianou, Natongou 1, Natongou 2, Samben-Foane, Tantchindjoaga, Telga, Yiegou" },
+
+            { r: "Savanes", p: "Kpendjal Ouest", c: "Kpendjal Ouest 1", can: "NAKI EST", locs: "Biagou, Ganloré, Galé, Gabounou, Bonkoungou, Gnimbountigo, Boumbounli, Nabangou, Kpatchale, Kroudjoaga, Maldjoaga, Kadegli, Kpempiagou, Djatigou, Fobenga, Donligou, Djipientambigou, Djapiengou, Djamoitiga, Djoamon, Kankangoui, Kankangouii, Naki-Est, Nakpatangou, Nakpatchale, Kankampieni, Nadjoungou, Boulbenli, Nambenga, Nanyibe, Namoumbaga, Nanwande, Nayega, Napelkangue, Natare, Napabagou, Nayetantchiagou, Obogou, Sanlagou, Santangou, Sawaga, Siegou, Sogou, Djibolé, Djambengou, Batbogou, Djamombagou, Tamatigou, Tangbangou, Tamondjoare, Tantchiagou, Tantchimou, Tindambagou, Titiagou, Wakpelegou, Batebogou, Djembengou, Fobenga-Tierrou, Kankangou, Kpemplagou, Naki-Est Centre, Napelkang, Santongou, Tambiengou, Wakpelogou" },
+            { r: "Savanes", p: "Kpendjal Ouest", c: "Kpendjal Ouest 1", can: " OGARO", locs: "Bonloare, Bontogbangbangou, Galbagou, Galpoli, Konangou, Kpempigou, Kpendjaga, Kpengongondi, Namatigou, Napagou, Ogaro, Tambimonga, Timmonga, Bonloire, Gbangbangou, Namatougou, Ogaro-Centre, Ogaro-Kouampante" },
+
+            { r: "Savanes", p: "Kpendjal Ouest", c: "Kpendjal Ouest 2", can: "NAMOUDJOGA", locs: "Balbiaga, Bondjodjoare, Enoina, Gale, Digbangbangangou, Gbandjali, Gninwoli, Gninyargou, Kankandi, Kakaamomombiagou, Kompit-Bong, Komgbanli, Koutidjoaga, Kpankangouani, Kpembonle, Kpembona, Malgbangou, Nabatiga, Nadjouot, Nadanou, Nadoungou I, Nadoungou II, Nakpiel Nalouate I, Nalouate II Nambonga, Nassagou, Namoudjoga, Natchountchale, Nanissongue, Oboungou, Topienga, Okpabagou, Pompondjoaga, Sinangbangbangou, Sog-Bogou, Tambonga, Tangbamonte, Tanloaga I, Tantambagou, Tantantchal, Tchiamonga, Tchimbiangou, Todjogou I, Tolonkarga I, Tolonkarga, Talgamboundi, Yamadjoaga, Boundjoare, Galle, Kompite Bonga, Kongbane, Naloate, Naloate-Tolong, Nambonga-Bas, Namoundjoga, Tamondjoare, Tchindjoare" },
+            { r: "Savanes", p: "Kpendjal Ouest", c: "Kpendjal Ouest 2", can: "POGNO", locs: "Banangandi, Bongona, Botolonga, Dielo, Djagoga, Djankougli, Edogai, Djibontoti, Djigniandjoga, Edoga II, Egabonga, Gbamonte, Gbanga, Gniyargou, Kouampante, Kpembole, Kpendjaga, Lidole, Namounou, Nansongue I, Nansongue II, Papri, Onandjoua, Pogno, Salambagou, Tankpagli, Tanloaga II, Tchimouri, Todjogou I, Tolonli, Toumporgou I, Toumporgou II, Djignandjoaga, Gnindjenga, Nadano" },
+
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "BOGOU", locs: "Bogou Centre, Tindongou, Samboune, Sagou, Dote, Nokbak, Tingole, Kounkogou, Djabir, Kpinting, Sakle, Sidjitre, Dokle, Loankpongou, Togorogou, Nandodani, Kpimkpark, Dimangou, Natomone, Loambene, Tandjouare-Centre" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "PLIGOU", locs: "Mandiare, Tolong, Kong, Pligou 1, Pligou 2, Tanmonga, Kpantongou, Nassak, Tami, Dabogou, Djabargou, Boate, Barigou, Tanso, Konkolone, Nadouanou, Tchabongou, Kpedjak, Kougli, Kongue, Mandiari" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "BOULOGOU", locs: "Boulogou Centre, Bougou, Tannabe, Benbengou, Gbandjiegue, Koukbengou, Kolk, Nassiegou, Tambimongou, Sandongou, Kounkogou, Tingbandongou, Djalogue" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "NANDOGA", locs: "Natigou, Moumouane, Doungou, Nadoga-Centre, Margou, Gangana-Konkogou, Nanlourgou, Djabargou, Boak, Bouak, Momouane, Nandobik, Nandoga-Centre" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "BOMBOUAKA", locs: "Bombouaka, Djabire, Djalogue, Koulague, Kounkogou, Soungou, Tambangou, Djalere, Kankangbane, Kombianbagou, Koumbogou, Kounkoare, Nagbangou, Nakpakli, Yenyargou, Yering, Kombiambagou, Tingbandongou, Koulok, Bombouaka-Centre, Kankagbane, Kounkouare, Moumouabe, Tambango, Yeringue" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "GOUNDOGA", locs: "Goundoga-Centre, Kangou, Tadongou, Sankpong, Nannague, Nassiete, Nandjoare, Sounssouri, Nadjogou, Biatlare, Nandjoiare" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "TAMONGUE", locs: "Tamongue, Yembour, Boumpare, Koundougou, Nayergou, Nagouni, Djapal, Gnomongue, Koudjagougoune, Tambigue, Nankpangorgou, Djabiane, Baritigou, Bouboumone, Bouboumiok Tampaklouk, Balalong, Bompore, Boumboumogue, Koudougou, Youak 2" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "LOKO", locs: "Loko-Centre, Tigou, Yoak, Tomongue, Kpimbogue, Gnoukperime, Kerekete, Kpebonga-Loko, Kpembonga, Loko-Nadjir, Nassongue, Sinsabik, Youak" },
+
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 2", can: "DOUKPERGOU", locs: "Nabine, Sangou, Nassiok, Koitindagou, Bakosse, Liek, Larsiok, Gbankone, Doukpolou, Siguibagou, Kpembik, Matougou, Gbamonna, Malagou, Djaringue, Gbada Kounkogou, Tomoni, Nadongou, Sotoco Bakoks, Centre" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 2", can: "BAGOU", locs: "Bagou Centre, Gare, Kpark, Nalbagou, Gbingbamone, Bogle, Mongue, Boglimong" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 2", can: "LOKPANO", locs: "Lokpano, Yemborbagou, Dotik, Brouk, Koukomoni, Kpinkpaworouk, Nagniar, Tayene, Pog, Kpedjok, Lokperouk, Naouk, Dagou, Kpamoik, Tamon-Djapak, Paok, Gbetimong, Kpek-Djok, Lokpanou-Centre, Naok" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 2", can: "MAMPROUG", locs: "Nakdong, Mamproug, Tolong, Salongue, Tangbamong, Pkumbuog, Tambimong, Djapak Mamproussi, Bore, Djapak, Kumbok, Centre, Mamproussi, Tambimongue, Tangbanmongue, Tolongue" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 2", can: "NANO", locs: "Nano, Kona, Bopak, Djamoni, Kpamboulk, Kounkogou, Nassiégou, Tomangue, Doré, Tolone, Kpiérik, Nagou, Mouak, Gnoate, Talkipak, Monne, Nano-Centre, Nassiagou" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 2", can: "SISSIAK", locs: "Sissiak Centre, Monne, Morbague, Nadagou, Poukperik, Tomone, Nada-Dore, Molbague, Pokperik" },
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 2", can: "TAMPIALIME", locs: "Tampialime Centre, Wark, Nalongou, Djabdawour, Nabaogue, Dadjoare, Soak, Kpinkparpak, Kpinkparbagou (Badouak), Tomone, Myr, Koulmatik-Myr, Bakpang, Bakpang-Souka, Sibiogou, Nakpabak, Piabribagou, Djabkoane, Nakpabague, Bakpansouka, Kpinkparbagou" },
+
+            { r: "Savanes", p: "Oti", c: "Oti 1", can: "FARE", locs: "Fare Centre, Natchare, Mayefoukoun, Taderi, Fare" },
+            { r: "Savanes", p: "Oti", c: "Oti 1", can: "MANGO", locs: "Djabou, Sangbana, Fomboro, Zongo, Petit Zongo, Nakorkou, Djalondi, Nagbati, Payoukou, Gnangbandi, Magna, Bonzoukou, Boulori, Padori, Sadoritieba, Sadori-Nagbakou, Tchanfieri, Tchanwiekou, Nakpiekou, Kokoumbou, Mantche, Koumongou-Kan, Tchiri, Tiekou, Djagori, Tchatchaboubou, Natchabou, Sansanne-Mango, Anoche, Gnagbandi, Magnan, Tanadekebou" },
+            { r: "Savanes", p: "Oti", c: "Oti 1", can: "SADORI", locs: "Koumongoukan, Nakpiekou, Padori, Sadori, Sadori-Tieba" },
+
+            { r: "Savanes", p: "Oti", c: "Oti 2", can: "TCHANAGA", locs: "Tchanaga, Nawakassou, Payoka, Boudori, Miessou, Poporokou, Yinyingou, Gbemba Haut I, Gbemba Bas II, Natoungoroka, Tangbandi, Tantcharkou, Gbemba, Tangbame" },
+            { r: "Savanes", p: "Oti", c: "Oti 2", can: "BARKOSSI", locs: "Barkoissi, Boassé, Bougou, Boulogou, Dankour, Tomonlogou, Kampoat, Kolk I, Poukpièloko, Koubengou, Nassiégou I, Nassiégou II, Nabab I, Nabab II, Kpensammob, Kolk II, Koundouloung, Kpembone, Kpedjak, Kampoate, Nassiegou" },
+            { r: "Savanes", p: "Oti", c: "Oti 2", can: "NAGBENI", locs: "Nagbeni-Centre, Kpebonga, Kankangou, Nakperkangue, Biaga, Tchamignoti, Djibolé, Wamone, Tangbane, Kpagnoh, Tamonga, Namoubaga I, Namoubaga II, Kpembone, Dobogue, Bielik, Gnimbountigou, Tcharbongou, Gbantchale, Gnouboutigou, Panio, Dogboague, Nagbeni, Tcharbengou" },
+            { r: "Savanes", p: "Oti", c: "Oti 2", can: "GALANGASHI", locs: "Bigou, Poloti, Galangashi, Tamongue, Karekete III, Nagouni, Tambinamonne, Namboessou, Kadjitieri I, Kadjitieri II, Kpandjini, Kouwakou, Akpossou, Galangashie, Kadjitieri 2, Nambouessou, Tambinamone" },
+            { r: "Savanes", p: "Oti", c: "Oti 2", can: "LOKO", locs: "Loko, Kounkogou, Nadjib, Kpebonga, Kerekete I, Kerekete II, Tambigue, Pieboka, Pieboka-Sambona, Yoak, Bandjatomongue, Tambinamone, Nagouni, Nassongou, Balitigou, Bouboumiagou" },
+
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 1", can: "MOGOU", locs: "Mogou Centre, Bakanou, Bontroga, Danwoga, Djanhale, Djahani, Fiegou, Gbeti, Kpentchani, Kpaong, Kohanga, Koldaga, Kougnieri, Koussigou, Maba, Nadaga, Nagbekti, Nakitone, Nakpadjoka, Namomale, Nantiaga, Nayoh, Tampecti, Tontondi, Danhaga, Dawaga, Mabou, Tampakti, Botroka, Djahanle, Edil Gbalondi, Gbeti Ougale, Kouanga, Tchankpere" },
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 1", can: "SAGBIEBOU", locs: "Baoule, Boni, Bonani, Dileka, Kpayoh, Sagbiebou, Nassikou, Sabiegou-Centre, Sangole-Tiepa, Tchanwiekou, Kpayo" },
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 1", can: "TCHAMONGA", locs: "Tchamonga, Dakpali, Karoukou, Kpokou, Koroukou, Koulagnieri, Nadengou, Natemborga, Todjakou, Topiega, Djankpeteli, Karikou, Balbiaga, Bonkarli, Korokou, Kpembona, Kpenbonle, Kpokoubongou, Malgbangou, Nadoungou, Nakpiele, Simbo, Tambonga, Tanloaga, Tchawalgou, Todjogou, Tolankatiga 1, Tolankatiga II, Toupiega, Yamadjoaga" },
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 1", can: "GANDO", locs: "Namoni, Djankpani, Dje-Djabou, Djounle, Tchamonga, Gando, Kounadagou, Lanlale, Nadjokargou, Nakpati, Nassika, N’Gambi, Sakou, Takpapieni, Tchakpale, Wogou, Yacle, Djebouri, Nabile, Nakpokle, Sinkpale, Kawonke" },
+
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 2", can: "KOUMONGOU", locs: "Koumongou, Nandiki, Djoundjoungoussou, Nalogbandi, Kpatiboli, Natcho, Gnangbandi, Djawaka, Tokou, Naba" },
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 2", can: "TAKPAMBA", locs: "Takpamba, Nkpe I, Nkpe II, N’Foutche, Manta, Nambossi, Djadodo, Lenido, Djandjatie-Koumongou, Legbando, Djandjatie, Namoukou, Borte (Wante), Karbongou, Nangolgou, Tchantchassou, Trebongou, Kereketenou, N'Kpe 1" },
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 2", can: "KOUNTOIRE", locs: "Panga, Samti" },
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 2", can: "KOUNDJOUARE", locs: "Bambore, Blamonga, Djbdjoare, Djankougli, Nyanle, Koundjoare, Kpenkankandi, Sankortchagou, Tambate, Tambima, Sanloaga, Djabdjoare, Gnanle, Odjuaebsdtjoare" },
+            { r: "Savanes", p: "Oti Sud", c: "Oti Sud 2", can: "NALI", locs: "Nali, Kpakpabou, Naboutibou, Kaboufiessou, Nagbangou, Tchaba, Kpare, Nassoukou, Wongbadi, Nagangou, Nomba, Touleba, Nalokou, Tababou, Naloba, Wonkobanali, Nassokou, Wonkoba, Nagbongou, Nakpare" },
+
+
+
+            // --- RÉGION DE LA KARA ---
+
+
+            { r: "Kara", p: "Keran", c: "Keran 1", can: "KANTÉ", locs: "Anima, Atétou, Awonda, Déoute, Gnantè, Womalou, Goulbi, Kantè, Kantè-Tar, Tchastè-Maison, Tchitchira-Maison, Téritè-Maison" },
+            { r: "Kara", p: "Keran", c: "Keran 1", can: "AKPONTE", locs: "Kokou-Temberma, Amaka Santougou, Andesse, Kpassouwouro, Atikpeta, Tchankpasse, Natiponi, Kawounga, Kounanoungou, Koupagou, Koumatchangou, Atikpeta I, Atikpeta II" },
+            { r: "Kara", p: "Keran", c: "Keran 1", can: "PESSIDE", locs: "Adjaïté, Ouloulita, Namouté, Pessidé, Soutè, Kokotè, Naboulgou, Houkoussemon" },
+
+            { r: "Kara", p: "Keran", c: "Keran 2", can: "ATALOTE", locs: "Houlourè, Atalotè, Komtè, Wartè, Nioucira, Outiritè, Adélo, Wartè-Ferme, Anima-Ferme, Teritè-Ferme, Tchastè-Ferme, Amina-Ferme, Amna Komte, Assoulo, Awoulonta, Komte Maison, Komte Namote, Komte-Fermes, Kpakieta, Kpamberta, Tapouta, Tchaki-Hougou, Tcharore, Tchaste, Terite, Toundja" },
+            { r: "Kara", p: "Keran", c: "Keran 2", can: "HELOTA", locs: "Hélota, Mboratchika, Nandoundja, Koblé, Kounassiou, Manta, Napo, Kpaskpaî, Houlio, Kobli, Kounassigou, Labarkouta, Namie, Nandjoundja, Napo I, Teloute, Woursemon" },
+            { r: "Kara", p: "Keran", c: "Keran 2", can: "OSSACRE", locs: "Ossacre, Kpelinga, Hougouyote, Finkata, Wolate, Namiè, Pangouda, Nande, Kounkougbe, Fenkata, Houkouyote, Kounkounkpe, Kpaouta, Kpelenga, Simbine, Sinte-Wota" },
+
+            { r: "Kara", p: "Keran", c: "Keran 3", can: "KOUTOUGOU", locs: "Koutougou, Koutchatigou, Tapounté, Tapounté-Tchitchira Tapounté-Sola, Koutantagou, Koutamagou, Koutapa, Kouyakoungou, Koutougou-Sola., Koutougou-Solla, Wankpaou" },
+            { r: "Kara", p: "Keran", c: "Keran 3", can: "NADOBA", locs: "Dapien, Koukotougou, Koffi-Ferme, Koubiéti, Koulangou, Koukotchignigou, Kounatipogou, Tchitchira-Ferme II, Matéma, Nadoba, Oubiétiba, Pimini, Koukontchigou, Nantagou, Koukotchiangou, Koussakpangou, Koukotchignikou, Koutouwogou, Sibouri, Tamiata, Tchitchira Ferme 2" },
+            { r: "Kara", p: "Keran", c: "Keran 3", can: "WARENGO", locs: "Wartéma, Warengoo, Koufitougou, Koutandiegou, Koutagou, Koupatiegou, Koumagou, Liténi, Koutado, Kouniti, Bassamb (Dissani), Tchitchira-Ferme, Koutessogou, Kouwouagou, Koumontchigou, Dissani, Tchitchira Ferme I, Warengo" },
+
+            { r: "Kara", p: "Dankpen", c: "Dankpen 1", can: "GUERIN-KOUKA", locs: "Gmassapoune, Gnantoul, Guérin-Kouka, Kabongmabe, Kikpassassine, Kinakpatéou, Koudjoudjou, Koukoumboune, Koilamon, Koumère, Kouni, Tchirkpambou, Nagbikoré (Bilerdo, Namab, Namandjol, Nargbal, Wagamè, Tagniamboul, Kissamonsine, Apado (Apatme), Bilerdo, Boutchatchal, Djabagbal, Kabongmab, Kibounguen, Kimoline, Kolamon, Koukoumboun, Kpatchalbou, Mabole, Naboini, Tagnamboul, Takpapimbou, Tidatchibdo, Wagam, Yigmado" },
+            { r: "Kara", p: "Dankpen", c: "Dankpen 1", can: "NAOMPOCH", locs: "Deman, Djotawoul, Gbangbalgo, Toguel, Nampoch, Napimbou, Kpétalibou, Kpamboua, Sakponi, Touguel" },
+            { r: "Kara", p: "Dankpen", c: "Dankpen 1", can: "KATCHAMBA", locs: "Katchamba Centre, Ibondjo, Itotchan, Gbangbalé, Namwakou, Tchrekpeni, Sékou, Koulfièkou, Kadokou, Kpankpandi, Djabokou, Fabrido, Iboundjo, Kaatchamba, Kadogou, Nawakou" },
+
+            { r: "Kara", p: "Dankpen", c: "Dankpen 2", can: "NAMON", locs: "Atchoréi, Atchoréii, Liboul, Lang Namon-Centre, Nawal, Koutchétchek, Bassambo, Garimbon, Kleyir, Kpatchide, Mergbale, Namon, Nawalo, Pitignon, Tipoul" },
+            { r: "Kara", p: "Dankpen", c: "Dankpen 2", can: "NATCHITIKPI", locs: "Kinasiou, Kitoman, Natchitikpi, Aragote, Bougabou, Kinassiou, Konol, Mambi, Oubouna-Losso" },
+            { r: "Kara", p: "Dankpen", c: "Dankpen 2", can: "NATCHIBORE", locs: "Natchibol, Targbal, Kadjol, Koutégou, Koutchéou, Atontébou, Djapaka, Kouteou, Koutiere, Liboundjal, Napitcheka, Natchibore, Targbale, Tchirka" },
+
+            { r: "Kara", p: "Dankpen", c: "Dankpen 3", can: "BAPURE", locs: "Bapuré-Centre, Bikpabombe Bitchakpabe, Borbogou, Bouwadjal, Iboboui, Poutamele, Kpatchile, Koudjokponkpon, N’Sado, N’Sandjabou, Namol, Nanani, Pimpindjol, Koubouabou, Adamoudo, Bapure, Bikpabombe, Ibobo I, Issado, N'Noughoundo, Nanane, Nandjal, Pipidjole, Tanangnido, Yakindo" },
+            { r: "Kara", p: "Dankpen", c: "Dankpen 3", can: "KIDJABOUN", locs: "Bombare, Djabignon, Djakpagnon, Igbetab, Ikpassole Toni, Kissarun, Kpaprol, Kpetable, Nabibe, Naboure, Ghamguel, Nassibik, Natchikpil, Satchale, Tapoune, Tchangbir, Teman, Tipil, Kidjaboun, Gasseman, Igabetab, Ikapassole, Kagmatchedo, Kissabuini, Kpetab, Nanguele, Ocredo, Tchangblim" },
+            { r: "Kara", p: "Dankpen", c: "Dankpen 3", can: "NANDOUTA", locs: "Bikpandji, Dodone, Iboubou II, Kloukpon, Tchadou, Kpabol, Kpadjol, Kpadalto, Nandouta, Possao, Koukpone, Ibobo II, Koufou, Koukpon, Koukpon-Taab, Kpandja, Kpandjib, Kpataldo, Tchale" },
+            { r: "Kara", p: "Dankpen", c: "Dankpen 3", can: "NAWARE", locs: "Nawar, Kissatine, Udjoblibo, Bondido, Nagniboule, N’Koukoumane, Koffido, Nayile, Nagnene, Ngbidjabo, Wadjado Boudjale, Djampil, Kignokare, Binadjoube, N’Wakpamboune, Kpanle, Nampoa, Sambotibe, Kondjado, Kpale, Lidjoblibou, N'Wakpamboun, Nagbidjabo, Nagnimboul, Nagnini, Naware, Nayele, Sadjibou, Wadjado" },
+
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "NIAMTOUGOU", locs: "Niamtougou, Founougou, Samogou, Bontiga, Daoura, Dougaeni, Zongo Et Leurs Fermes, Ragouka, Kpadiga, Norguèwa, Logou, Biligoukontanga, Sakpa-Saragou, Kamsa-Ragou, Ragou-Kaa, Sada-Samogou, Zongo" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "POUDA", locs: "Bogaware, Boulola, Kawa-Haut, Broukou, Bourgou, Briga, Kawa-Bas" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "SIOU", locs: "Birgou, Kpamnone, Hagou, Kpadebe, Konfaga, Koukou, Kpalowa, Wia, Kamante, Badidigou, Borga, Dogakawa, Kounfirgou, Djorergou, Borgah, Dagterga, Douga-Kawa, Siou-Baliga" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "BAGA", locs: "Samaragou, Kiriga, Maragou, Samaragou Kpolgan, Hounahou, Koulinté, Koudougoua, Baga-Centre, Kirgah, Kpalgan" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "MASSEDENA", locs: "Kore, Tchitchira, Koumde, Aloumbre, Tabitanta, Tchatipou" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "AGBANDE-YAKA", locs: "Yaka, Agbande, Akpite, Aworo, Kagnia, Kalgnia, Kawanga, Mawouro, Sada" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "TENEGA", locs: "Bale, Natoun, Djeregou, Djofaga, Bidigou, Natango" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "KOKA", locs: "Doudourou, Founougou, Gaga, Kantamboli, Kpana, Sama Fegou-Ken, Tanfelakeni, Djaganoni, Kantambolo" },
+
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 2", can: "ALLOUM", locs: "Alloum, Missiouda, Takpadè, Kpassidè, Broukou, Anima, Akar, Alloum-Centre" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 2", can: "DEFALE", locs: "Amondé, Animadé, Wolade, Lao, Tamdé, Adelo, Atchonta, Kawouno, N'Tienta, Worote" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 2", can: "KADJALLA", locs: "Kadjalla, Outi, Tchore, Agounde, Koutakou, Agbassa, Agbassa Bloc 8, Kadjalim, Kadjalla-Centre, Kpapte, Okpelou, Opassoun, Ossara" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 2", can: "KPAHA", locs: "Kpaha, Amaidè, Houndè, Tchitchidè, Andjidè, Kounantchere, Kpaha-Centre" },
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 2", can: "LEON", locs: "Leon, Leon–Agbande, Leon-Anima, Leon-Yaka, Bidjande, Houkada, Mandawea" },
+
+            { r: "Kara", p: "Binah", c: "Binah 1", can: "PAGOUDA", locs: "Pagouda, Alambourou, Kagnigada, Kawa, Kagnissi, Alambourgou, Assere-Bas, Assere-Haut, Assere-Plateaux, Binah-Noh, Dambourgou, Falade, Kagnissi Centre, Kagnissi-Yoking, Kode, Koloum, Kpakpayouroute, Kpanahore, Kpeloude, Pamaka, Somsia, Swang, Tanfarou, Waze" },
+            { r: "Kara", p: "Binah", c: "Binah 1", can: "PESSARE", locs: "Konfess, Pessaré-Pouh, Sondé, Tchadé, Agbarada, Confess-Kouwan, Koulaouda, Kouloum, Tchade Lemde" },
+            { r: "Kara", p: "Binah", c: "Binah 1", can: "PITIKITA", locs: "Somdé, Hilimdè, Tonah, Samtè, Tankpalou, Adjatè, Wazelao, Tchabrou, Karaah, Yoking, Karah (Wazelao), Somde Yoking, Tonaka (Somde)" },
+            { r: "Kara", p: "Binah", c: "Binah 1", can: "SOLLA", locs: "Kouyala, Dehore, Koudjia, Kouwambom, Kouyolo, Kouyoria, Koutchindjire, Atama, Ihe, Kakpala, Kenebi, Kepobi, Kokoule, Kougnenetome, Kouhobe, Koutchintchere, Mayo, Teloude, Tiningou, Yomde" },
+            { r: "Kara", p: "Binah", c: "Binah 1", can: "BOUFALE", locs: "Baré, Tchimandè, Kiyako, Lama-Tessi I, Kpalgou, Kadjika, Tawa, Lama-Tessiii, Banware, Keyakou, Madjatom, Sarakawada, Yaobraka" },
+            { r: "Kara", p: "Binah", c: "Binah 1", can: "LAMA-DESSI", locs: "Farende, Tchikawa, Koukoude (Kuwde), Fareng-Pouh, Houla, Koukoude" },
+            { r: "Kara", p: "Binah", c: "Binah 1", can: "ASSERE", locs: "Télandè, Hèka, Swang, Pouh, Plateaux, Pouwari, Koloum" },
+
+            { r: "Kara", p: "Binah", c: "Binah 2", can: "KETAO", locs: "Kétao, Teroda, Kadjanga, Assimakétao, Assima, Bomwai, Eguimde, Ewaiyo, Kadjanga-Assima, Makonte, Mantchikite, Teloute, Tokide" },
+            { r: "Kara", p: "Binah", c: "Binah 2", can: "KEMERIDA", locs: "Piyadè, Atchaou, Hilou, Kémérida, Akpa-Konde, Kalade" },
+            { r: "Kara", p: "Binah", c: "Binah 2", can: "SIRIKA", locs: "Amonde, Sangayinlao, Lorou Mbode, Ndjei, Kéakou, Doloude, N'Bode, Sogode, Tchalayide" },
+
+            { r: "Kara", p: "Kara", c: "Kara 1", can: "LAMA", locs: "Fehing, Sahoudè, Kolidé Kpédah, Lama-Bouh, Poudè, Poulou, Gnangbadè, Adjambissi, Agamade, Agnarim, Atabaa-Werede, Ateyeda, Batascome, Donguieyo, Ewowou, Eyeou, Kakou, Kolide, Kpedah, Kpedah Kpandah, Kpeleouwayi, Lama-Bou, Lama-Haut, Pitiye, Saoude, Soundoulow, Tchaloude, Tchamde, Tchitchinouda, Teloude, Tiwimde, Toundounoda, Welade" },
+            { r: "Kara", p: "Kara", c: "Kara 1", can: "SOUMDINA", locs: "Agnadè, Wedè, Tchéou, Karè, Kassi, Katakpa, Kougbelekou, Pidah, Powaï, Setidè, Sodoa, Kaadè, Poyo, Somieda Kaade, Soumdina, Tchoou, Tchouda" },
+            { r: "Kara", p: "Kara", c: "Kara 1", can: "LANDA", locs: "Kadja, Panalo, Landa, Dewa, Houloun, Kassi, Somieda" },
+            { r: "Kara", p: "Kara", c: "Kara 1", can: "LASSA", locs: "Agbandandè, Ahodo, Alloum, Doundè, Tchoou, Houdè, Kandalao, Lao-Haut, Lao-Bas, Lèou, Nandadè, Samala-Bas, Samala-Haut, Samièdè, Tchola, Elimdè, Akasside, Lao, Samala" },
+
+            { r: "Kara", p: "Kara", c: "Kara 2", can: "PYA", locs: "Akeï, Awidina, Kadjika, Kioudè, Koda, Laou, Pittah, Tchamdè, Kagnalada, Kagnalade, Lao, Lao-Feounoh, Pya-Hodo, Pya-Pittah" },
+            { r: "Kara", p: "Kara", c: "Kara 2", can: "SARA-KAWA", locs: "Sara, Kpessidè, Kawa, Gnatre" },
+            { r: "Kara", p: "Kara", c: "Kara 2", can: "TCHARE", locs: "Tcharè, Wiyamdè, Ayiga, Nacoco, Oudjitane, Tchore-Centre, Tchore-Ferme, Wyamde" },
+            { r: "Kara", p: "Kara", c: "Kara 2", can: "TCHITCHAO", locs: "Bou, Fatou, Hazé, Kigbeleng, Lohou, Tchitchao Peulh, Agade, Kagninde, Leoude, Sereda" },
+            { r: "Kara", p: "Kara", c: "Kara 2", can: "YADE", locs: "Agbandè, Pou, Lowa, Bou, Kayade, Loa, Poulou, Sode" },
+            { r: "Kara", p: "Kara", c: "Kara 2", can: "BOHOU", locs: "Kolidè, Waldè, Pyadè, Tchamdè, Tchouyou, Pouh, Bohou-Haut, Konzossi" },
+            { r: "Kara", p: "Kara", c: "Kara 2", can: "KOUMEA", locs: "Fèouda, Houdé, Karè, Kpatayou, Laouda, Lowou, Tchoïda, Namdina, Piyo, Sèdina, Sondè, Mandela" },
+
+            { r: "Kara", p: "Kara", c: "Kara 3", can: "AWANDJELO", locs: "Agbalossi, Awandjelo, Peulh, Welou, Siouda, Soumbou, Tchevenda, Kpankpanzibiyo, Hadedeyo, Kpalassi, Kpangbazibio, Kpedah, Lamboh" },
+            { r: "Kara", p: "Kara", c: "Kara 3", can: "KPINZINDE", locs: "Kpinzindè, Akpang, Kpindi, Adodè, Abouda, Adomde, Agbang, Gnekereda, Kotokada, Limgao, Seyo" },
+
+            { r: "Kara", p: "Kara", c: "Kara 4", can: "ATCHANGBADE", locs: "Atchangbadè, Bèbèda, Bounoh, Koudjoukada, Tchitchao, Waya, Aboida, Atchimda, Biade, Gnaoude, Kadjada, Podoouda, Tchandida, Tcheleyo, Tchitchao Waya, Weloude" },
+            { r: "Kara", p: "Kara", c: "Kara 4", can: "DJAMDE", locs: "Bouda, Bounoda, Kawa, Yaka Waya, Pyayo Moladè, Kpandè-Koli, Adjada, Djamde, Laonoh, Tchaada, Tounboua" },
+
+            { r: "Kara", p: "Assoli", c: "Assoli 1", can: "BOULADE", locs: "Ouro-Afa-N’Da, Bouladè-Ouro-Afa-N’Da, Boulade-Kabyè, Bouladè-Yaka, Bouladè-Lamba, Kalampaï, Kpangbassi-Bouyo, Atchoro, Lawi, Kayali, Afidi, Agnakpao, Boulade, Souri-Kadanga" },
+            { r: "Kara", p: "Assoli", c: "Assoli 1", can: "BAFILO", locs: "Abokoudè, Adjawanda, Agoudadè, Alamatrou, Azodide, Didaoureda, Gbangbandde, Kagnigande, Kedjessiado Kiyakoudjo, Kobidjida, Kodjoda, Koulowoudè, Koromotomouga, Kpalada, Kparatao, Kpaya, N’Kassaïdè, Zongo, Ouro Banadè, Ouro Saoudè, Quartier Administratif, Seledè, Sodjidè, Wawandè, Ourobagandè, Bola, Tchièdè, Djindè, Agbakouahou, Bafilo, Kigbaleou, Kpaya-Woro, Tchitchade, Tchon-Woro, Towou-Welou" },
+            { r: "Kara", p: "Assoli", c: "Assoli 1", can: "DAKO(DAOUDE)", locs: "Kpalada, Soréda, Gnata, Kadjando, Kadjimarada, Tchavalim, Tchènoudè, Kawa, Koudjoudoulou, Yara-Yara" },
+
+            { r: "Kara", p: "Assoli", c: "Assoli 2", can: "ALEDJO", locs: "Alédjo-Kadara, Alédjo-Bas, Agarède, Dikorodè, Efolo, Kadjaloua, Kpewa, Kolina, Tagbadè, Agarade" },
+            { r: "Kara", p: "Assoli", c: "Assoli 2", can: "KOUMONDE", locs: "Bola, Kadjaloua, Koumonde" }, { r: "Kara", p: "Assoli", c: "Assoli ", can: "Bafilo", locs: "Katchaladè, Sore, Bouzire, Bouorou, Kiderou" },
+
+            { r: "Kara", p: "Assoli", c: "Assoli 3", can: "SOUDOU", locs: "Soudou, Tchalimdè, Gandè, Kolo, Agbandaoudè, Gbao, Soudou Peulh, Tchédjélawou, Gniguélia, Adjreke 1, Analene Kope, Atakpame, Awagome, Awodomon, Blakpa, Djerehouye, Gbekon, Som-Gaoude, Sombohou, Tchikpe" },
+
+            { r: "Kara", p: "Bassar", c: "Bassar 1", can: "BASSAR", locs: "Banida, Biakpabe, Biakpabe Lomnava, Bikoulibe, Bikoudjibe Yovokome, Zongo, Bikotibe, Bikpassibe, Binaparba, Binanwalibe, Dikpandine, Dijmbine, Kibédipou, Kodjodoumpou, Kpadjadoumpou, Kpinkissi, Langonde, Moande, Nangbane, Okore, Laanbodjida, Wadandé, Bikoutchabe, Akeyita, Bougabou Boulare, Boutangbatou, Inaba, Kalanga, Boungba, Kassou, Kikpeou, Kona, Waman, Kpalou, Legue Legue, Malfacassa, N’Kpassimbian, N’Nababoum, Natchindi, Tchatchaminad, Tchotoukou, Walele, Kozo Nangbane, Anima, Bikotiba, Bikoundjib, Bikpassiba, Binanwaliba, Binaparb, Biyakpabe Bassar, Bougabou, Boulare, Commune De Bassar, Djimbire, Kakpal, Kawa-Bassar, Kpankissi, Kparitao, Monde, Mongbanti, N'Kpassambiame, N'Laboun, Nangbani, Saboundi, Tchatchaminade, Wamane, Yakougmado" },
+            { r: "Kara", p: "Bassar", c: "Bassar 1", can: "BAGHAN", locs: "Baghan, Mô, Yekedji, Tchapossi, Dantchessi, Foukou, Gmassedjoun, Katchatou, Kissafo, Koumboul, Momondo, Pissaka, Semengbande, Tadjal, Yakedji" },
+
+            { r: "Kara", p: "Bassar", c: "Bassar 2", can: "BANDJELI", locs: "Bandjéli, Bikabombé, Bitankpambé, Biyakpabé, Diwatchouk, Katcha-Konkomba, Katcha-Losso, Tabalé, Natchmba, Mélé-Mélé" },
+            { r: "Kara", p: "Bassar", c: "Bassar 2", can: "DIMORI", locs: "Bkpadjabe, Tchebou, Kankpale, Kankpale-Konkomba, Kountoun, Linatagbanle, Taman, Dimori, Bikpadjabe, Bissakarim, Kankpal, Katcha-Dimouri, Likoogbanle, M'Balado, Nagmale, Patcho, Tamon, Wamane Dimori" },
+            { r: "Kara", p: "Bassar", c: "Bassar 2", can: "BITCHABE", locs: "Bidjomambé, Bikpadjabé, Binadjoubé, Bissokpabé, Bitchabé, Bitchobébe, Katcha-Losso, Katcha-Konkomba, Ighale, Bakpayam, Bawelessi, Koulangbale, Koussatcheou, Kouyoukoule, Passindja" },
+
+            { r: "Kara", p: "Bassar", c: "Bassar 3", can: "KABOU", locs: "Délabre, Dabouti, Tèmèmè, Dikountoundi, Kabou, Kidjokpokpon, Madjatom, Nouhoulme, Sampa, Sara, Dikpakkpare, Didoutikpir, Dikountounde, Dikpakpare, Dilabre, Diwande, Kabekou, Kadjampou, Katcha, Kidjoman, Kidjoofoyi, Kissossoye, Koukponghoun, Kouwadjoyi, Kpandjouye, Lakpatime, M'Boum, Madjatome, Makouya, N'Nababoun, Nangbassi, Nima, Oukpandoumpou, Tankpayabour, Tatri" },
+            { r: "Kara", p: "Bassar", c: "Bassar 3", can: "MANGA", locs: "Tampido, Kikpan, Nighoudo, Manga, Bomblido, Manga Kpalou, Tampindo, Tikolado" },
+            { r: "Kara", p: "Bassar", c: "Bassar 3", can: "SANDA-AFOWOU", locs: "Bhouda-Kawa, Kaloude, Kawa, Sanda-Afohou, Tchitchao-Kawa, Afohou-Kpakpao Kagnigada, Afohou-Kpiki, Maoméyatchi, Kayamde, Kaloude-Peulh, Wakade-Peulh, Lélèda, Afohou-Gafo" },
+            { r: "Kara", p: "Bassar", c: "Bassar 3", can: "SANDA-KANGBADA", locs: "Kagbanda, Tchaboua, Thè, Sohaly, Koudouta, Kamboua, Bitankpar, Koudoum" },
+
+
+
+
+            // --- RÉGION CENTRALE ---
+
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 1", can: "KOMAH", locs: "Kossobio, Kpalo-Kpalo, Akamade, Barriere, Tchawanda, Didaure, Nada, Koulounde, Salimde, Bariki, Komah, Bowounda-Kamonda, Kedjikandjo, Sokode, Alafia, Avadade-Nada-Tchavadi 2, Camp-Gendarmerie, Kpandidjo, Tchavade, Zongo, Zongo Tchogbala, Bowounda, Didaoure, Tchavadi 2, Togo La Verite" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 1", can: "KPANGALAM", locs: "Kwawou-Oro, Kedia, Bama-Bodolo, Kpangalam, Tchalanidè, Kpario, Sagbadai, Bouzalo, Tabalo I, Tabalo II, Kouvong, Kideoude-Tchalanide, Agbayo, Kpangalam-Chateau, Kpangalam-Mecque, Kpangalam-Zaire, Kparioh, Kwawu-Woro, Lom-Nava, Sagbadei, Tabalo Montagne, Tabalo-Bouzalo, Tchakpalade, Tivedrou" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 1", can: "TCHALO", locs: "Tchalo-Centre, Adjorogo, Bavilè, Kounkounze, Agbassaoude, Kpalafoulassi, Tchalo" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 1", can: "KANDAMBARA", locs: "Nabidé, Kadambara, Birini, Dibouidé, Aou-Mono Tchilada, Birini-Dibouide, Filandi-Somou, Gborode, Kedjebi, Kpakparakpade, Sada 1, Sowouboua, Tawireda" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 1", can: "KPARATAO", locs: "Kparatao-Centre, Sabaringade ; Affadadè-Nima, Koloware, Nigbaoude 1, Nigbaoude 2, Sada, Kabre-Fatima, Yelivo, Afadade-Nima, Atchibodowo, Bonagana, Bourode, Kouyo, Kparatao, N'Digale, Nigbaoude II, Sabaringade, Sada 2" },
+
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 2", can: "LAMA-TESSI", locs: "Lama-Tessi Centre, Yara-Yara, Yara-Kabye, Aou-Losso, Yao-Cope, Kassena, Kampala, Abatchang, Solaou, Datcha, Koboyoh, Aou-Matchatom, Alfa-Kpirou, Faring, Yao-Kope, Kassena I, Kassena-Pont, Koboyo, Lama-Tessi, Lama-Tessi Tare, Sakalaoude, Solao, Tchaware, Tchoubong" },
+
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 3", can: "ALHERIDE", locs: "Alheride-Centre, Torogade, Dousside, Amaide, Amaoude, Kinizao, Aleheride Kpaide, Aleheride Semeide, Bouvouma, Kikimini" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 3", can: "KOLINA", locs: "Kolina, Koumomiade, Azanade, Koumoniade-Azanade, Tchaourode" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 3", can: "KEMENI", locs: "Kemeni" },
+
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 4", can: "AGOULOUDE", locs: "Agbandaoude, Agouloude, Kpaza, Toboni-Tchimberi, Adjei-Woro, Tagourougoude" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 4", can: "KPASSOUADE", locs: "Kpalada, Kpassouade, Bande" },
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 4", can: "WASSARABOU", locs: "Aguidagbade, Wassarabo, Avolao" },
+
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 1", can: "TCHAMBA", locs: "Akpowa, Boupëpo, Boutchouwa, Djarewa, Dejiwa, Doniwa, Iyiwa, Kangarawa, Kitom, Koubouni, Limamwa, Tchibarawa, Woatouwa, Zongo, Kpatakpani, Dagma, Larini, N’Tchourou, Tchamba, Yeliwa, Dantcho, Koutchoni, Nandjoubi, Adjaani, Dedjiwa, Degou, Kaboure Boure, Kadjale, Kagningada, Kouboni, Marche Moderne, N'Tchrou, N'Tchrou Bloc, Tchekele, Tibona, Watouwa" },
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 1", can: "LARNI", locs: "Larni, Akpowa, Dagma, Kpankpadja, Kpatakpani, Koubouworo, Koutamboni, Larini, Yeliwa I, Yeliwa II" },
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 1", can: "ALIBI", locs: "Alibi I, Alibi II, Kitangoli, Tchekele (Alarwa), Agbawilga, Akoura, Bem, Iyom, N'Djakpo, Oudjimbowe, Oumoidjawa, Welou" },
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 1", can: "AFFEM", locs: "Affem-Boussou. Affem Kabye, Kapekou (Kidjanda) Boussoulou, Affem-Kabye, Affem Boussou, Affem Boussoulou, Affem Carrefour, Affem Kabye Bloc, Affem Kidjanda, Bloc, Findi" },
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 1", can: "KRI-KRI(ADJEIDE)", locs: "Gueri-Malam, Kazakali, Trougode, Kola, Kominide" },
+
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 2", can: "KOUSSOUNTOU", locs: "Koussountou, Koulomi, Teheza, Gassena, Adjamade, N’Foutou, Abalode, Agbantala, Afele 3, Souroutaw, N’Djamaka, Ababli, Afele, Amoutou, Djamde, Hezoude, Karkassou, Keletou, Kouloumi, Kpakpala, Kpanguessi, Laouwari, N'Kognon, Souroutawi, Tem" },
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 2", can: "BAGO", locs: "Bago, Affo Sala Kope, Afoule, Agbavile, Agoumana, Akawilou, Akpango, Assoula, Atoulou, Blou-Elavagnon, Bouro, Keta, Kpala II, Kpandja-Cofe, Kpeleville, Liring, Loffoko, Modoukou, Mono, Mono II, Namba, Nyamassila, Ofe, Offofo, Olale, Oronko, Paris Cofe, Samai, Samai-Elavagnon, Sinande, Sombolo, Sotoyibia, Wele" },
+
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 3", can: "KABOLI", locs: "Kaboli, Goubi, Samai, Agbansikiti, Solimbia, Atafa II, Affo-Sala-Kope, Atafa, Djama, Bo-Lea, Dogode, Kala 2, Katankou, Lakaba, Odin-Orin, Samai Kaboli" },
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 3", can: "BALANKA", locs: "Balanka, Alegba, Akouta-Gogo, Naganama, Medina, Goukan Goulourou, Afele" },
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 3", can: "GOUBI", locs: "Goubi, Bila, Gominade, Talaba, Abakadji, Obossou Kope, Ogou, Woro-Goubi" },
+
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 1", can: "SOTOUBOUA", locs: "Laou, Laou-Wai, Lokou, Pya, Sekenderia, Sonde, Sotouboua, Tchitchao, Watchalo, Wekedi, Zongo, Somieda, Badaou-Mono, Tchoide, Tchilada, Touyeda, Landa, Piyo, Feouda, Tabinde, Bouale, Egbande, Dereboua, Bogo, Banlaou, Kpeida, N’Djan’Fezi Tchila, Kaniamboua, Camp Gp, Essowavana, Gnimda, Kere, Kpandiyo, Kpete-Kpete, N.D. Paix, Kpeyi Tchila, Meteo, N'Djavezi, Palakide, Panlao, Solingo" },
+
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 2", can: "AOUDA", locs: "Aouda, Kpampoure, Babade, Toukoudjou, Haloukpaboundou, Aou-Mono, Tchitchaou, Nima, Bouranda, Aou-N’Gban, Aouda-Habiyeda, R4Yh, Kolombo-Woro, Kpamboure, Landa, Lawelou, Tchitchao, Laotchoba-Tchitchao" },
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 2", can: "TITIGBE", locs: "Tittigbé, Bovolem, Hilimde, Niamgoulam, Tessemon, Pouda, Pabotomade, Tchilada I Et II, Waze, Boa, Adjade, Teterou, Bouvolem Poyo, Bouvolem Pouda, Papodomade, Somde, Tchilada, Tezemon, Titigbe Tchilada, Tittigbe Teterou" },
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 2", can: "FAZAO", locs: "Fazao, Sakou, Kaguigbara, Folo, Boungoulou, Bolohou, Souroukou, Katchalikadi" },
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 2", can: "ADJENGRE", locs: "Adjengre, Kparakpara, Tembio, Akonta, Melamboua, N’Djanfezi, Komsade, Dalanda, Laoude 1, Laoude 2, Kpendjéria, Kassikade, Tchamde-Mono, Sessaro, Atatoude, Habyegnou, Piyoda, Adjengre Centre, Adjengre Kaou, Adjengre-Hawieyo, Tchare Kope" },
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 2", can: "KERIADE", locs: "Keriade, Fita, Ketcheboua, Komsade, Limboua, Melamboua, N'Djavezi" },
+
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 3", can: "TCHEBEBE", locs: "Tchebebe, Fondah, Kazaboua, Kaza, Kazawai, Agombio, Abidjande, Pouwounepehe, Hezoude, Solimde, Madjatom, Tigbada, Kamboua, Yomaboua, Pouwemideou, Lamaweré, Kpelewai, Zongo, Djoulamegou, Lama, Bokobana, Hezouwe, Kpande-Kpade, Losso, Matchatom, Mewede, Pouwedeou, Pouwinipihe, Tenlao" },
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 3", can: "BODJONDE", locs: "Bodjonde, Lama Were" }, { r: "Centrale", p: "MÔ", c: "MÔ 1", can: "DJARKPANGA", locs: "Solide, Wokou, Moussou-Koudjou, Tassi, Gnesimde, Mangoukouro, Malandema, Dogode, Djarkpanga, Gnomede, Bolkatanga, Foule-Atchika, Gmaladama, Gnezimde, Kpangamde, Mampoula, Okou, Sangoul, Sibonia" },
+            { r: "Centrale", p: "MÔ", c: "MÔ 1", can: "KAGNIGBARA", locs: "Kagnigbara, Boungoulou, Kagna, Matchatom, Banda, Folo, Sakpagniga" },
+            { r: "Centrale", p: "MÔ", c: "MÔ 1", can: "BOULOHOU", locs: "Boulohou, Agbama-Somou, Morosi, Souroukou, Tassi" },
+
+            { r: "Centrale", p: "MÔ", c: "MÔ 2", can: "TINDJASSI", locs: "Léguédé, Nabou-Kouro, Kandjo, Tchatchakou, Bodjondè, Mewedè, Ipouali, Takade, Saiboude, Gbanzaba, Kouida, Koni, Tindjasse, Adamdè, Makouwi, Bindila, Kandjo-Koura, Nabou, Taka, Tindjassi, Tindjassi Katabini, Tindjassi Lao" },
+
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "WELLY", locs: "Welly, Akpararoul, Natchevi, Okouwai, Batoketetou-Cope, Datcha-Kope, Lakougnon-Kope, Bouraima-Kope, Tuwide, Agoli-Bouraima, Egloude-Datcha, Kouka, Landrocope, Okou-Cope, Patokitetou Kope, Yovo-Kope, Welly Plateau" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "YEGUE", locs: "Yegue, N’Konkoa, Toumoulmou, Tchifama-Yegue, Toumouloumou, Elavagnon-N'Konkoa" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "DOUFOULI", locs: "Doufouli, Amalakle, Djipita, Troukpan" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "BLITTA", locs: "Blitta-Gare, Toule, Défalé, Tchaloudé, Kazacope, Kpawa, Tondja, Yaloumbe, Tchangaide, Waragni, Finade, Oyou, Adjigbe, Blitta-Losso, Blitta-Village, Blitta-Campement, Chp Blitta, Pouwedeou, Poude" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "PAGALA-GARE", locs: "Lassa, Yeloum-Lekdan, Bounatse, Agbodeka, Tchanie, Yaocope, Yeloum-Bagna, Ataka, Pagala Gare, Agodeka, Bounatche, Gassi-Gassi, Komkassi, Pagala-Lassa, Tantakote, Yeloum-Lekohan" },
+
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 2", can: "LANGABOU", locs: "Langabou, Asoumakondji, Edjare-Kope, Gbegue, Matekpo, Dogogble, Atikpai, Samoure-Kondji, Tchihe, Odomi, Alomagni, Agbeguinou, Koulom, Kodjogble, Koffiti, Garandi, Babame, Malomi, Amougble, Anago-Cope, Assouma Kondji, Fawi-Cope, Garandji Kabye, Kabye Kope, Kporodji, Tchrami" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 2", can: "AGBANDI", locs: "Agbandi, Diguina, Talkade-Cope, Dogo-Cope, Agbandi-Toule, Djanta-Cope, Awanga, Yamba-Cope, Awissa-Cope, Wissan, Niki-Niki, Toule-Mono, Agbandi-Mono, Djato Kope, Niki Niki 2, Solingobou, Talakate, Tale, Toule 2" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 2", can: "TCHARE-BAOU", locs: "Tchare-Baou, Tchare-Gnama, Yade-Aboussa, Foudjaye-Aboussa, Yade-K, Atikpai, Tchare-Dakrokonsou, Niamtougou, Niamtougou-Atikpai, Soussoukparovi, Soussoukparognan, Siou-Kope, Kpakoute, Landro-Kope, Egouloude, Balamkope, Djeregou, Afima, Atikpai-Kadanga, Atikpai-Losso, Dakrokonssou, N, Pakoute, Soussoukparouvi" },
+
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "DIKPELEOU.", locs: "Dikpeleou" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "KATCHENKE", locs: "Katchenke, Kelebo, Assouma Guedema, Koui, Guedeme" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "TCHIFAMA", locs: "Tchifama, Bohou-Kope, Gbebou-Kope, Guikandre, Kossirame" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "TINTCHRO", locs: "Tintchro, N’Kengbe, Lalamila, Kwassidame, Talabou" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "M'POTI", locs: "M’Poti, Tadjan, Tchoun-Tchoun, Elavagnon, Kabye-Koffi Kope, Karhawe, Akpawo Kope, Dogo Kope, Efalo-Kope, Elavagnon-Todji" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "PALAGA-VILLAGE", locs: "Palaga-Village, Palaga Toumegbe, Anemagne, Akoura, Yovokope" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "ATCHINTSE", locs: "Atchintse, Assoukoko, Alele, Yourourou, Bedibagnan" },
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 3", can: "DIGUENGUE", locs: "Diguengue, N’Gobo, Aboussoum Kope" },
+
+
+
+            // --- RÉGION DES PLATEAUX —
+
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 1", can: "ELAVAGNON", locs: "Zone Résidentielle, Zongo, Kossi Kopé, Akpanté, Amédéka, Akaba, Elavagnon, Lom Nava, Okoutawaya, Camp, Anani Kopé, Nimon Kopé, Camp Mutualiste, Djokpé, Landa Kopé, Lama Kara Kopé, Sama Kopé, Efoufami, Ogou Kolidé, Ogou Adibo, Alabadè I, Alabadè II, Togodo, Abinga, Ayona, Ogou Laouda, Ogou Lassa Sirka, Simtaya, Agbenoxoe, Effoufami, Elavanyo, Kadjala, Kemerida 1, Kemerida 2, Lamakara Cope, Landa, Lassa Sirka, Ogou-Bretelle" },
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 1", can: "GBADJAHE", locs: "Awoyo Kopé, Gbadjahè, Adjibaro, Atake, Bodjé Kopé, Lakouhékou, Yovo Copé, Alikizan, Awayo, N'Kassibou, Portapo, Tchamie" },
+
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 2", can: "MORETAN-IGBERIOKO", locs: "Agan, Agodeka, Degou, Dogba, Fodjaye, Ilekohan, Issati, Kagnamé, Matragbadja, Morétan, Ofè Awo, Tchékita, Yébou-Yebou, Adjoakpekpé, Afidégnigba, Atotoyi, Igbomédji 1, Modoukou, Morétan 1, N'Konta, Niamtougo-Copé, Odjounagbo, Ofè-Agbédé, Tchékélé" },
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 2", can: "BADIN-COPE", locs: "Aguéré, Aloko, Badin-Kopé, Eweran, Fangodo, Kokolo, Lom Nava (Yanda), Ogou Alla, Oligo, Modokouté, Yanda, Madjatom, Ogou-Agrani, Ayabalao, Badin-Cope 1, Badin-Cope 2, Fasso, Gbaga, Gbedemedji, Kalinko, Laurent-Cope, Odotou, Ofe-Ganto, Ogou-Allah" },
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 2", can: "KAMINA", locs: "Adjogba, Afodji, Bassan Kopé, Eko, Igboloudja, Kamina, Konadabo, Ogou Assolikpo, Ogou Kinko, Adjoèkpa, Aganwo, Agbago 1, Agnigbo, Azigo, Bassan, Bro-Bro, Dadjo-Cope, Datcha, Guegue, Igboedin, Kpatchima, Lom-Nava, Ogou-Kinko 1, Onko" },
+
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 3", can: "NYAMASSILA", locs: "Aleka Kopé, Alfa Kopé, Avakodja, Gaougblé, Kokoté, Nyamassila, Akakpo Copé, Alabade 1, Alabade 2, Aleka Cope, Alemodji 1, Awagame, Dafolegname, Doussougble, Kpassi Cope" },
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 3", can: "KPESSI", locs: "Atikpai, Kpéssi, Afeyéyé, Ayékpada, Okankan, Agbezan, Akpakpati, Atchokou, Atokodje, Awoutere, Etou-Cope, Kpoli-Kpoli, Okpoguedje 1, Tchahesse, Wassirou Cope" },
+
+            { r: "Plateaux", p: "Anié", c: "Anié 1", can: "ANIE", locs: "Bansa, Agodjololo I, Agodjololo II, Alamassou, Anié, Djangbassou, Doté Kopé, Kolo Kopé, Kolor Kopé, Kpéhoun I, Kpéhoun II, Kpendélé, Mentekpé, Niamtougou Kopé, Yiboè Kopé, Adjreke 2-A, Agbandao, Ahoyeye, Anié Camp, Anié Ville, Arouna Copé, Boulali Anié, Catholique, Centrale, Djintoyi, Kpassa Kopé, Kpékamé, Plateaux Anié, Agodjololo, Alomassou, Bansa Kope, Boulali, Flema, Kamalo, Konigbo, Koubia, Kpehoun" },
+            { r: "Plateaux", p: "Anié", c: "Anié 1", can: "KOLO-KOPE", locs: "Abotchi, Doté, Gnani Kopé, Hountchakpé, Kaoura Kopé, Kpendélé, Matékpé, Ogbone Kopé, Ogoudjon, Tchabi Kopé, Tchagri, Wilikè, Arife, Banassim, Corre Kope, Kpandja, Torotchi" },
+            { r: "Plateaux", p: "Anié", c: "Anié 1", can: "PALLAKOKO", locs: "Akaba Plateau, Akabassim, Alekopé, Pallakoko, Sonde, Tchakpala, Toïgbo, Akaba-Gare" },
+
+            { r: "Plateaux", p: "Anié", c: "Anié 2", can: "GLITTO", locs: "Glitto, Adjako, Agounadèvè, Dassagba, Kavé, Agbakotan, Bonoukpoe-Cope, Deou-Cope, Detowe, Gbagou, Glagou, Ilowadan, Kable Cope, Kabo Cope, Kouffohoun 1 & 2, Koufota, Kpakpassa, Love, Sotikoe, Tagbagala, Toglo" },
+            { r: "Plateaux", p: "Anié", c: "Anié 2", can: "AFEYE KPOTA", locs: "Afeye Kpota, Djida" },
+            { r: "Plateaux", p: "Anié", c: "Anié 2", can: "ADOGBENOU", locs: "Abalo-Kope, Adogbenou, Afole, Agbato, Agbota, Gbagbadjakou, Afekpa, Portail, Kpatala, Oke Hode, Okeloukoutou, Adjora, Portapo, Tchagritchakpa, Bana 1, Bana 2, Kanikani, Wanou-Kope, Amedeka, Yaou Copé, Dougou Copé, Agouna Cope, Agossou Cope, Agbole, Hounto, Bayèdjè, Agossou Kope, Akoda Cope, Akpakatengue, Akri Cope, Efoufami, Esso-Kope, Hode, Idjafe, Ilekohan, Kpalamedji, Tele Kope, Wouroukou" },
+            { r: "Plateaux", p: "Anié", c: "Anié 2", can: "ATCHINEDJI", locs: "Atchinedji-Adido, Gbegnafe-Sada, Djonou Kopé, Assongba Kopé, Akpondjedo, Adjigo, Ladjadji, Gbondjindji Sada, Atakpamé Kopé, Ayoré, Ahoeyeye, Atchinedji, Bayedje, Fadegno-Kope, Foukote Vossa, Jean-Kope, Kalandja, Kogo Cope, Mangoti Gome, Tchamin" },
+
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 1", can: "KOUGNOHOU", locs: "Atekpo, Atigoza, Dakan, Karakonkou (Titiwui), Kougnohou, Lofo Loko, Mango, Veh Mangoassi, Veh N’Kougna, Esseleke, Amouka, Arima, Lonfoloko, N'Tchawukope, Tikemou" },
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 1", can: "DJON", locs: "Ayagba, Djon, Djon Adapé, Dzakpodji, Dzitriamé, Esséleké, Hohoé, Kotora, Kpalavé Gbohoho, Kpalavé Gboyéhé, Tchakpali, Tikémou, Tsafè, Djitrame, Broukoukou, Densu, Djon Atigoza, Djon Bekro, Djon Moudjagni, Djon-Kodjoaza, Dougan, Dzon Danyi, Nyande, Tshafe-Hohoe" },
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 1", can: "VHE", locs: "Vhe, Veh-N'Kougna-B" },
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 1", can: "GBENDE", locs: "Aka, Atchaka Gbéné, Brounfou, Gbendé, Kabo, Kamalo" },
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 1", can: "YALLA", locs: "Alelè, Foto Hoho, Sokoundé, Sasanfo, Yalla, Foto Yeye, Kabo, Koukoute Kope, Sakounde, Sansafo" },
+
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 2", can: "KAMINA-AKEBOU", locs: "Adikrom, Afidégnigba, Abédipé, Ananai Kopé, Azanoubui, Azigo, Kamina, Tomégbé, Wawa I, Wawa II, Wadanyi, Wodagni" },
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 2", can: "SEREGBENE", locs: "Brada, Danyigan, Fon, Kabagni, Megbeadjre, Saraga, Sérégbéné, Ayagba, Ayagba Bethele, Baskou, Dayi-Pire, Gavi Cope, Nyile 1, Wourourou" },
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 2", can: "KPALAVE", locs: "Kpalavé Boyéhé, Kpalavé Bohoho, Afiadenyigba, Agbedipe, Fon, Kabagni, Kpalave Gbohoho, Kpalave Gboyeye, Palagbo, Tomegbe" },
+
+            { r: "Plateaux", p: "AMOU", c: "AMOU 1", can: "OUMA-AMLAME", locs: "Adjahun, Agadji, Amlamé, Ezimé, Kpalogo, Kpète, Oulita Plateau" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 1", can: "IMLE", locs: "Adina, Adiva, Ayomé, Dédomé, Edifou, Gnassam Kopé, Kotogna-Kopé, Koutoukpa, Oukle, Agbakawlou, Amoutchi, Ayome-Todji, Eviawou" },
+
+            { r: "Plateaux", p: "AMOU", c: "AMOU 2", can: "EKPEGNON", locs: "Adogli, Agbogboli, Ekpégnon Vakpo, Nyilé, Onyawlou, Ebouaka-Kope, Edouossi-Cope, Okouayem, Zebe" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 2", can: "AMOU-OBLO", locs: "Amou-Oblo, Elo, Ofounagbo, Oloutokou, Patatoukou, Sodo, Kpalongo, Amou Godo, Amouta 1, Kadoasso-Kope, Katsave, Kotoko, Koutoube, M'Bafeyi-Cope, Ogobe 2, Olelou, Oulo-Abalo-Kope, Tshihe" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 2", can: "KPATEGAN", locs: "Agnamouto, Bassè, Enagbédjé, Essovi Kopé, Igbowou-Amou, Kougblenoukopé, Kpatègan, Ogbatanwlou, Tchefoukè-Aza, Zavé, Ayetche-Cope, Aza, Djimegni, Fiagbome, Idoh-Kope, Kpakoutcha, Ogbatanawlou, Tchefoule-Aza, Teme-Djeti" },
+
+            { r: "Plateaux", p: "AMOU", c: "AMOU 3", can: "PATATOUKOU", locs: "Patatoukou 1, Patatoukou 2, Kadoasso-Copé, Laré-Copé, Katsavé, Kanta, Salamkpa-Copé, Kpinkpingré, Assaïh-Copé, Tegrou-Copé." },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 3", can: "HIHEATRO", locs: "Afidegnigban, Agbozoumé, Agomaza, Apédomé, Apeyetogblé, Azafi, Bakpété, Démadéli, Démadéli-Ekéto, Démé, Bidowou (Agbanaka Kopé), Doufio, Elavanyo, Goudévé, Gougou Lom Nava, Hihéatro, Idifou, Iwa Apégamé, Iwassi, Iwlobo I, Iwlobo II, Kanoukopé, Kodjo-Aza, Mouna, Oga, Okpahoué, Ougbo, Ougbo Ali, Oulatché, Sagouda, Tchakpali, Yoro, Afeye, Agome-Aza, Azafi-Okpahoue, Iwa-Idifiou, Iwlobo, Lom-Nava" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 3", can: "GAME", locs: "Adjassiwoewoé, Bato, Gamé, Gnamassilé, Ibéfo, Iliki-Dzebé, Iliko-Ogomé, Iliko-Tomégbé, Kadzape-Gbétiya, Kpètè-Mava, Mava, Obuevawou, Okpate I, Okpaté II, Okpaté-Olodji, Otadi Sevia, (Plateau), Atikpai, Bedzeme, Colam, Gbetiya, Haho-Tove, Kome, Kpatega, Kpohlui, Lougba, Tsimane, Yabui, Yekou" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 3 ", can: "TEMEDJA", locs: "Ebeva, Evou-Apégamé, Glélou, Idao, Témédja, Témé-Otowou, Yaokopé, Akossi-Kope, Kpoguede, Omouva-Akalos, Otowou, Wakpa" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 3", can: "OTADI", locs: "Alawousso, Beteyi, Didokpo, Djalouma, Edoko, Gbeko, Illico, Itokoube, Okama, Okpakou, Otadi, Owanibè, Yadè-Alifi, Yadè-Apégamé, Yalla, Alaousso, Yade, Yade-Gbekon" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 3", can: "AVEDJI-ITADI", locs: "Adjigo, Agbodomodji, Atigozo, Avedjé, Okafou" },
+
+            { r: "Plateaux", p: "Ogou", c: "Ogou 1", can: "GNAGNA", locs: "Gnagna, Etoiles, Agbonou Campement, Kamina, Agbonou Ceet, Agbonou Gare, Agbonou Kéta, Agbonou Kpota, Agbonou Lycée, Agbofon, Haoussa Zongo, Kossi Kiti, Lomnava Bas, Lom-Nava Haut, Nyékonakpoè, Adotesse, Awoyo, Talo, Edigbalé, Abotesse, Atakpame" },
+            { r: "Plateaux", p: "Ogou", c: "Ogou 1", can: "DJAMA", locs: "Kotokoli Zongo, Djama-Atakpamé, Sada, Adougbélan, Atakpamé Ville, Bocco, Madjemakou, Afeyéyé-Bouto, Agadja, Akpa Kopé (Iko Akpa), Akpaka-Djama, Djama, Foukoté, Lodji (Djama), Maromi, Matékpo (Jérusalem + Aták), Mawulè, Akpa Kope, Assoke, Atakpame, Fetigbe, Lodji, Madjamakou, Matekpo, Miniki, Olesse, Yorokoto" },
+            { r: "Plateaux", p: "Ogou", c: "Ogou 1", can: "HOUDOU", locs: "Houdou, Doulassamé, Résidence, Agotohui, Awagomé, Gbékon, Foukotê, Lodji, Adjreke 1, Analène Kopé, Awodomon, Djérèhouyè" },
+
+            { r: "Plateaux", p: "Ogou", c: "Ogou 2", can: "DATCHA", locs: "Avete Datcha, Amou Akpékpé, Amoutchou, Awokou Kopé, Campement, Centrale Datcha, Datcha, Koutago, Atcha Cope, Djondji, Egbedjrovi, Okpodjive" },
+            { r: "Plateaux", p: "Ogou", c: "Ogou 2", can: "AKPARE", locs: "Akparé, Assanté, Ilama (Agbodrafo), Kougnonwou, Nangbéto, Akakayi, Akpaka, Atsu-Onougbo, Fin-Digué, Kotchadjo, Tanago, Tchagala, Abi, Agbedrafo, Akpekpedi, Kokou Kope, Okougnohou, Okouta, Toukou, Wode" },
+            { r: "Plateaux", p: "Ogou", c: "Ogou 2", can: "KATORE", locs: "Djonougbé, Katoré, Kélèkpè, N’Taré, Kpakpo, Lassegnon, Tadicopé, Yaovi-Copé, Abodji, Adjido, Adokame, Akotia, Atidje, Atokodje, Ilekohan, Irandomi, Lom-Nava, Otchanranri, Tota" },
+
+            { r: "Plateaux", p: "Ogou", c: "Ogou 3", can: "GLEI", locs: "Abessanhou, Adanka, Gléi, Agborou, Atakpara, Ayolé, Badji, Datcha Atikpayi, Gbébe, Ilé Sama, Kpégnon Atikiti, Madjémakou, Médjangni, Odori, Kpogna I, Tobose, Bouré, Fon-Komé, Matékpo (Glei), Zolou, Abessonhou, Adjambroukou, Assosso, Atikpayi, Gbebey, Ile-Agborou, Koffi-Gato, Kpegnon-Atchikiti, Kpogan, Laourou, Madjamakou, Matekpo, Medjagni, N'Djatan, Ogbede, Ouida, Sama-Kope, Tchilla" },
+
+            { r: "Plateaux", p: "Ogou", c: "Ogou 4", can: "OUNTIVOU", locs: "Homagan, Ountivou, Ahouétougbé, Akodessèwa, Atomé, Azovou, Bavou, Homa, Kpédjaka, Abalohoe, Atchakoe, Ayihoe, Carrefour, Datcha-Agouna, Glive Adjeodahoe, Hamavou, Koyohoe, Kpeli, Kpetoe, Kpogandji, Tokotchihoe, Yeyehoe" },
+
+            { r: "Plateaux", p: "WAWA", c: "WAWA 1", can: "BADOU", locs: "Agbo Kopé, Anani Kopé, Anonoé, Badou, Badou Dzindzi, Johnson Kopé, Agbo-Kope (Litime), Ikpabe, Sarakawa, Zongo-Todji, Alouna, Bethel, Ekitedjue, Ikobi, Lom-Nava, Medina, Okpobe-Konta, Tadikom, Zongo-Yeye" },
+            { r: "Plateaux", p: "WAWA", c: "WAWA 1", can: "TOMEGBE", locs: "Adomi Abra, Akloa, Bethel, Tomégbé, Wobé, Agome-Anedi, Agome-Tomegbe, Agome-Tsihi, Akloa-Otcho, Kametonou, Kpedjina, Odomi-Abra, Tomegbe-Djigbodi, Tomegbe-Ikpini, Totolito, Wobe-Todji" },
+            { r: "Plateaux", p: "WAWA", c: "WAWA 1", can: "KESSIBO", locs: "Abrewankor, Kessibo, Kessibo Dzodzi, Kessibo Wawa, N’Taré Kopé, Totamé, Wamba Kopé, Abrewankor-Todji, Gnalabe, Kessibo-Djodji, Kessibo-Onabe, Kessibo-Ouvlioube, Kessibo-Sewa, Koudagba-Kope, Wampa-Kope" },
+            { r: "Plateaux", p: "WAWA", c: "WAWA 1", can: "KPETE-BENA", locs: "Kpété Atikpa, Kpété Bena, Aboreh, Mangbé, Ménou, Kpété Bibi, Kpeté Maflo, Kpété Mempassem, Kpété Zogbé, Mangoassi, Kpete-Bena Zongo, Atikpa, Itimogo, Kpete-Aborey, Kpete-Guin Cope, Kpete-Mangbi, Kpete-Mempeassem, Kpete-Menou, Kpete-Oloube, Maflo-Dzogbe" },
+
+            { r: "Plateaux", p: "WAWA", c: "WAWA 2", can: "GBADI-N'KUGNA", locs: "Enawoè, Djogbé Kopé, Gbadi N’Kougna, Otsoana, Ona, Zomenou Kopé" },
+            { r: "Plateaux", p: "WAWA", c: "WAWA 2", can: "EKETO", locs: "Agadja, Ekéto, Ekéto Elavanyo, Gbadi Gawodo, Omoutchi, Adefogadji, Eketo-Elavagno, Gbadi-Bena, Gbadi-Ediwlou, Iviowou, Kpobe, Okaou, Okou-Omoutchi, Onoto, Ouvlawou" },
+            { r: "Plateaux", p: "WAWA", c: "WAWA 2", can: "GOBE", locs: "Agbo Kopé, Adomi Plateaux (Abra), Doumé, Gobè, Onyawou Enyalavassé, Adomi-Abra (Plateau), (Plateau), Botokou, Gobe-Bebiniha, Gobe-Egbo, Gobe-Ouvou, Gobe-Vakpo, Itodou-Bas, Itodou-Haut, Kemedisso, Ona" }, { r: "Plateaux", p: "WAWA", c: "WAWA 3", can: "OKOU", locs: "Béna Plateaux, Okou, Zongo Yéyé, Ile, Alossounou-Kope, Bena-Plateau, Djalouma" },
+
+            { r: "Plateaux", p: "WAWA", c: "WAWA 3", can: "KLABE-EFOUKPA", locs: "Adossou, Azafi, Bénali, Klabè Soto, Klabè Adapé, Klabè Apégamé, Klabèe Efoukpa, Otandjobo, Todomé, Zogbégan" },
+            { r: "Plateaux", p: "WAWA", c: "WAWA 3", can: "OUNABE", locs: "Imoussa, Oudjè, Ounabè, Imoussa-Oudje, Oulita-Gonobe" },
+
+            { r: "Plateaux", p: "Danyi", c: "Danyi 1", can: "ATIGBA", locs: "Adoglixo, Afiadényigba, Afugbadzé, Apéyémé (Bassapé), Atigba, Babahoé, Dzogbégan, Evimé, Gbaladzé, Médévunui, Mempeasem, N’Dzakli, Todomé (Dalavé), Tovi, Wétropé, Afougbadze, Akpaliwoe, Awlume, Babaxoe, Batoume, Deve, Kpeve, Medewunui, Sethivikope, Tetebe, Todome, Tokoe, Tonota, Zongo(Apeyeme)" },
+            { r: "Plateaux", p: "Danyi", c: "Danyi 1", can: "KAKPA", locs: "Dzedramé, Gabi, Kakpa, Kétémé, Koudzragan, Koudzravi, N’Digbé, Ahloeve, Amegape, Dzedramegan, Koudzra-Gabi, Kusuntu, Nyamegbe, Tsadome" },
+            { r: "Plateaux", p: "Danyi", c: "Danyi 1", can: "YIKPA", locs: "Agamé, Agoumatsa-Todji, Kponoé, Yikpa-Anyigbé, Yikpadzigbé, Yikpa-Nyuimabou, Anyigbe, Dafo, Dzigbe" },
+
+            { r: "Plateaux", p: "Danyi", c: "Danyi 2", can: "ELAVAGNON", locs: "Agbébénoxoè, Amouta, Bavé, Bossopé, Danyimé, Edzeré, Edzere-Agokpo, Elavagnon" },
+            { r: "Plateaux", p: "Danyi", c: "Danyi 2", can: "AHLOM", locs: "Agamé, Ahlon-Bogo, Ahlon-Dénou, Akayo I, Akayo II, Awunadzasi, Iba (Usabini), Itobolé, Sasssanou, (Ilogo), Tinipe (Edoublilé)" },
+            { r: "Plateaux", p: "Danyi", c: "Danyi 2", can: "KPETO-EVITA", locs: "Danyi-Akpaligo, Danyi-Ankouvi, Danyi-Dafo, Danyi-Hihéatro, Danyi-Kpéto, Danyi-Nyanya, Danyi-Woevé, Togloxo (Danyi-Tokpè)" },
+
+            { r: "Plateaux", p: "Kpele", c: "Kpele 1", can: "KPELE NOVIVE", locs: "Adéta, Adeta-Kodémé, Adéta-Tséfi, Adéta –Wetsi, Atimé, Bémé, Tsiko, Adeta-Zionou, Atrave, Avegbadze, Beme-Todzi, Damonou, Koba Todzi, Yaha" },
+            { r: "Plateaux", p: "Kpele", c: "Kpele 1", can: "KPELE DAWLOTOU", locs: "Tutu-Zionou, Litito, Eve, Avovou, Avegbadze, Damonou, Wougba, Yaha" },
+            { r: "Plateaux", p: "Kpele", c: "Kpele 1", can: "KPELE-AKATA", locs: "Akata Adagali, Akata Adamé, Akata Akpokli, Akata Djokpé, Akata Kanan, Akata-Ahoble, Akata-Alo, Akata-Avewui, Akata-Dzogbepeme, Akata-Dzokpe, Kpetassi" },
+            { r: "Plateaux", p: "Kpele", c: "Kpele 1", can: "KPELE-GOVIE", locs: "Govié Huimé, Kpélé Govié Apégamé, Kpélé Govié Konda, Govie-Afegame, Govie-Hoeme, Konda-Todzi" },
+
+            { r: "Plateaux", p: "Kpele", c: "Kpele 2", can: "KPELE NORD", locs: "Ele, Adipom, Akadjame, Eleme, Eleme-Todji, Foto Nord, Kougban" },
+            { r: "Plateaux", p: "Kpele", c: "Kpele 2", can: "KPELE KAME", locs: "Agbavé, Dzogbé Puimé I, Dzogbé Puimé II, Goudévé, Agboté, Goudévé Avého, Ameto, Assogbe, Babave-Konda, Dzeyibo-Todji, Kpakope" },
+            { r: "Plateaux", p: "Kpele", c: "Kpele 2", can: "KPELE-GBALEDZE", locs: "Anoum, Dafo, Dzanikpe, Kayi, Kponvié, Tsavié" },
+            { r: "Plateaux", p: "Kpele", c: "Kpele 2", can: "KPELE-DUTOE", locs: "Agbanou, Agboté, Agbanon Konda, Avexo-Tsadome, Kpeglo" },
+            { r: "Plateaux", p: "Kpele", c: "Kpele 2", can: "KPELE-CENTRE (GOUDEVE)", locs: "Dougba, Goudévé, Hlonvié" },
+
+            { r: "Plateaux", p: "MOYEN-MONO", c: "Moyen-Mono 1", can: "TADO", locs: "Adodohoé, Aklotsi, Alagbamé, Avédji, Awouleté, Dekadé, Dogblodihoé, Fantomé, Gbogbo, Hanlimé, Hodjigéhoé, Klikomé, Kpakpéhoé, Kpatsivemé, Kpégodo, Kpéyi, Lom Mey, Azanhoé, Lonsimé, Sossouhoé, Tado, Tchodohoé (Monota), Vodzémé, Woefiomé, Adjatché, Ahoétougbé-Alou, Bétoumé Tado-Domé 2, Tado-Domé, Tchodohoé Gbogbo, Agbanvikpli, Alou, Aoutele, Dome 2, Halime Sosouhoe, Hodjiguehoe, Kpativeme, Kpota, Lonmey, Vodjeme" },
+            { r: "Plateaux", p: "MOYEN-MONO", c: "Moyen-Mono 1", can: "AHASSOME", locs: "Ahassomé, Akémé, Béssamé, Daganhoé, Fantchaohoé, Gamé, Kpabahoé, Kpédahoé, Kpetsehoé, Kpodoudji, Tsoukouhoé, Walimé, Ahassome-Commune, Kpetsihoe" },
+            { r: "Plateaux", p: "MOYEN-MONO", c: "Moyen-Mono 1", can: "TOHOUN", locs: "Adankpodji, Adanléhou I, Adanléhou II, Adjikamé, Ahoékéhoé, Alovikoti, Ayissanhoé, Begbadzi, Betoumé, Dakanmé, Dékouhoué, Dékpohoé, Fangnonhoé, Goudohoé, Hétigomé, Hometowouhoé, Koevihoé, Koutsin, Kpoyizouhoé, Lokossa, Nyekonakpoé, Téléhoé, Tohoun, Tohougan I, Tohoungan II, Abayamé, Adanyihohoé, Aglamassoé, Deglehoé, Dogbalouhoé, Douvihoé, Essounhoé, Fanglohoé, Gagandéhoé, Gbondjinhoé, Honouhoé, Konouhoé, Kossikopé, Tchinawouhoé, Tonoudehoé, Wagba, Hévé, Kpotamé, Adjahoe, Amouhoe Betoume, Gangadehoe, Gozuihoe, Hokehoe, Houenouhoe, Kossi Cope, Paradiso, Sagbohoe" },
+
+            { r: "Plateaux", p: "MOYEN-MONO", c: "Moyen-Mono 2", can: "KATOME", locs: "Agogome (Katome), Bovime, Katahoe (Katome), Katome Commune, Agogome, Amedegbe, Djidjandjounou, Katahoe" },
+            { r: "Plateaux", p: "MOYEN-MONO", c: "Moyen-Mono 2", can: "KPEPLEME", locs: "Agogomé, Amédégbé, Atifoutoudahoé, Avédzémé, Bovimé, Chiyimé, Détokpo, Djidandounou, Eklohoé, Essehoé, Katahoé, Kativou, Katomé, Koussramé, Kpahloehoé, Kpékplémé, Mangoti, Mégnontchihoé, Waligba, Egbohoé, Gbobadahoé, Kpédji, Atifoutou, Avedjeme Essehoe, Commune, Commune B, Kpekleme Centre, Kplakplahoe, Megnontsihoe" },
+            { r: "Plateaux", p: "MOYEN-MONO", c: "Moyen-Mono 2", can: "SALIGBE", locs: "Afotrokpui, Azévou, Bokohoé, Botokohoé, Dénouhoé, Djikamé, Doloumé, Huizimé I, Huisimé II, Kpokémé, Kpomé, Saligbé, Sogbahoé, Zakada, Zassa, Dekade, Huizime" },
+
+            { r: "Plateaux", p: "Haho", c: "Haho 1", can: "NOTSE", locs: "Adimé, Alinou, Agbaladomé, Batoumé, Ekli, Kpevé, Tsravekoé, Notse, Amato, Atchokou, Dafo, Dakpodji, Didomé, Hatchakpé, Houno-Kopé, Kpédigni, Kpota, Logokpé, Naolo, Sabakomé, Tègbé, Tègbé Stade, Todomé-Atimabizo, Tsoumikpota, Wotchegbomé, Zongo (Notse), Agbedjrovi, Agotove, Alekpota, Avosse-Cope, Gadjame, Komadankope, Kpota.Zongo-Gare, Loukpe, Mayikpo, Missahome, Odjobadjoba, Perimetre, Santo, Seva, Zongo" },
+            { r: "Plateaux", p: "Haho", c: "Haho 1", can: "DALIA", locs: "Adakakpé, Amakpapé, Atsavé, Dalia Begbé, Djekloé, Kloégnamé, Kpélé, Todomé, Tsavé, Agbévé, Agbodjé, Golowou I, Kablivé, Lalèkpé, Sodja-Kopé, Ayivi Cope, Dalia, Djakpo, Kablive-N'Konta, Lakoto, Samata-Kope" },
+            { r: "Plateaux", p: "Haho", c: "Haho 1", can: "ATCHAVE", locs: "Agome, Agoto, Alado, Avedje, Deme, Kloegname, Kpedigni (Atchave), Kpele (Atchave), Totave" },
+            { r: "Plateaux", p: "Haho", c: "Haho 1", can: "HAHOMEGBE", locs: "Agbave, Batoume, Fawoukpe, Hahomegbe, Kpegadje, Kpeve (Hahomegbe), Missahome, Atiketoe, Avougbeve, Djokoudawou, Golowou, Kpeve, Kpodji-Cope, Makare, Tendjessou, Tongodo, Tsravekoe, Yokou" },
+
+            { r: "Plateaux", p: "Haho", c: "Haho 2", can: "ASRAMA", locs: "Adjakpahoé Marché, Adjakpahoé Toyinouho, Asrama, Gbowle-Azamé, Gbowlé, Kamé, Siyimé, Tététou, Adjivou, Avèssoumè, Azonsouglè, Djadèhoé, Djangomé, Houévimé, Klotchomé, Kotoklo, Vodomé, Adjakpahoe, Asrama-Marche, Asramatou, Atsankeli, Azonsougble, Dachihoe, Edohoe, Gblevedji, Kalessouhoe, Kame 1, Kotokloe, Kpanzohoe, Latevihoe, Sagada Monoto, Sogbehoe, Tohoede, Toyinouhoe, Zokouve" },
+            { r: "Plateaux", p: "Haho", c: "Haho 2", can: "DJEMEGNI", locs: "Djémégni, Kpové Marché, Kpové Village, Migahoé, Tsagba, Tsagba Kponou, Attikpo-Tagbadja, Détokpo (Djémégni), Kponou, Kpové Avédji, Kpové Togbéhoé, Semondjihoé, Agbedougbe, Detokpo, Hlagbatan, Kpakpahoe, Kpove Bessehoe, Kpove Village 1, Kpove Village 3, Mangotigome, Nimini Kope, Towuive, Voume, Wedeme" },
+
+            { r: "Plateaux", p: "Haho", c: "Haho 3", can: "AKPAKPAKPE", locs: "Akpakpakpe-Centre, Amoudji-Cope, Copeyeye, Djaga, Kokoliakpe, Detoe, Fare-Cope, N'Nakpekou-Cope, Paris-Cope, Zomayi" },
+            { r: "Plateaux", p: "Haho", c: "Haho 3", can: "KPEDOME", locs: "Alati, Agbati, Agbati Gare, Akpakpakpé, Avovlokpé, Bako Kopé, Paris, Kablikpé, Rodokpé, Somonekopé, Aboudikpé, Adovi Kopé, Akakégan, Alati-Kpota, Alati-Marché, Dovi-Kopé, Kpédomé, Abala, Afantodji-Kope, Akame, Alati Ecole, Atsidome, Attitsovi-Kope, Avassikpe, Avovo Kope, Azakpe, Bafai-Kope, Bitoka-Kope, Centrale Latho, Djaga, Djakpatakope, Eglise A/D Adekpe, Ehoui, Foulani Kope, Gnignon, Hake-Est, Hekpe, Kloukpo Kope, Komlan Kope, Kota, Koubikpe, Kpedike, Kpedji, Kpegbadja, Medje, N'Gbenya, Semanou-Cope, Somone-Cope, Tsekouni Kope, Tsikpe, Tsinigan, Tsrouvita, Yava, Zitsou" },
+
+            { r: "Plateaux", p: "Haho", c: "Haho 4", can: "WAHALA", locs: "Kalabe (Mouzoukpon), Kokpli, Wahala, Wuilehoé, Adah, Afidégnigba (Wahala), Agokpa, Bato, Dindou, Fiakomé, Gotha-Kabyè, Kalagoro, Kpota (Wahala), Mission Evangélique, Yélénéké-Copé, Afidegnigba, Agadjahoe, Agadjame, Akana-Cope, Amouto, Bato-Losso, Evangelique, Kalabe, Kome, Koubokouna, Kpambiribi, Kpambiribi-Lafela, Kpedji, Kpota, Poude, Sikpevita, Tafia" },
+            { r: "Plateaux", p: "Haho", c: "Haho 4", can: "KPEGNON (HAITO)", locs: "Agodomé, Baya Kopé, Haito, Hayefor, Kpégnon Adja, Toklolo" },
+
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "AGOME-KPALIME", locs: "Kusuntu, Novisi, Kpégolonou, Nyivémé, Kpodzi, Lomnava, Tsivé, Numétu-Kondji, Atakpamé-Kondji, Zongo, Tsihinu, Nogo, Kpogadzi, Agoè-Kodzi, Gakpodzi, Afiodenyigba-Kodzi, Dzodzekodzi, Kpéta, Domè, Kliguè-Kodzi, Sam-Kodzi, Totsoanyi, Zomayi, Zomayi-Kpota, Xlétivi-Kodzi, Adédzénu, Djidjolé, Dzogadzé, Agogomé, Avuzé-Komé, Alhamdou, Détidéké Novisi, Dar-Es-Salam, Agbator, Woumé" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "HANYIGBA", locs: "Hanyigba Dugan, Hanyigban Todji, Hanyigba Todzi" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "TOVE", locs: "Agbéssia, Ati, Tové Ahoundjo, Tové Dzigbé, Tove-Agbessia, Tove-Ahundzo, Tove-Ati" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "KPADAPE", locs: "Agotimekopé, Kpimé Hloma, Kpimé Séva, Kpimé Todzi (Blifou), Kpimé Tomégbé, Kpimé Woumé, Kpadape Blitta" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "GBALAVE", locs: "Ahoudjo, Avéno, Tsadomé, Volovoè, Gbalave, Volove" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "WOME", locs: "Fiomaké Todji, Womé, Fiamaketodzi, Nyive, Toxome" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "TOME", locs: "Avého-Kpéta, Agripa-Todzi, Tomé, Tsokpo Kopé, Agrikpatodzi" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "VA KLO-MAYONDI", locs: "Djogbati, Tsapenu, Klonyigbé, Kpaliam" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "VA YEVIEPE", locs: "Haté, Fiopémé, Apessivemé, Montenyigbé, Zaguéra" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "VA-NYIVE", locs: "Flonyi, Bagnakoé, Yoti, Adan" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "VA ATSAVE", locs: "Atsavé, Dzigbé, Dzogbomé, Tokpuidomé" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 1", can: "VA YOKELE", locs: "Agnako, Bamé, Atsati, Atchavé" },
+
+            { r: "Plateaux", p: "Kloto", c: "Kloto 2", can: "LAVIE", locs: "Agoviépé, Apédomé, Huimé, Dzogagbe, Lavie Agode, Lavie Kpato, Lavie Peniel, Lavie-Allo, Tsavanya" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 2", can: "KPIME", locs: "Agotimékopé, Kpimé Hloma, Kpimé Séva, Kpimé Todzi (Blifou), Kpimé Tomégbé, Kpimé Woumé, Kpime Agodeke, Kpime Dzokoto, Kpime Kopegan, Kpime Todzi, Zongo" },
+
+            { r: "Plateaux", p: "Kloto", c: "Kloto 3", can: "KOUMA", locs: "Kouma Apéyémé, Kouma Apoti, Kouma Dounyo, Koumakonda, Kouma Tokpli, Kouma Adamé, Kouma Bala, Kouma Tsamé, Kouma Tsamé Totsi" },
+            { r: "Plateaux", p: "Kloto", c: "Kloto 3", can: "AGOME-YOH", locs: "Agomè-Yoh, Agomè-Tomegbé, Kame Tonou, Kpodzi, Kusuntu" },
+
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "ASSAHOUN-FIAGBE", locs: "Agbavé, Anyigbé, Assahoun Fiagbé, Bavié, Dzigbé" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "VA KLONOU", locs: "Atigofi, Atsadomé, Avéwui, Guedji, Hlomé, Somé" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "AGOU TAVIE", locs: "Akoumawu, Apégamé, Plantation, Tomégbé, Agoutomegbe, Kumawu" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "GADJA", locs: "Adina Kopé, Agoé Akodesséwa, Agokplamé, Avétonou, Egbi Kopé, Gadja, Gadjawukpé, Gadzagan, Kolo Kpando, Missawomé, Kologan, Makou Mavo, Messiwobé, Zozo Kondji, Akolikope, Develebe, Dongokope, Dududzeme, Ekokope, Fokpo, Gadzawukpe, Koloagokplame, Kpando, Lakponou, Messiobe, Missahome, Tsevikondji" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "AGOU-YIBOE", locs: "Agohoè, Agou Yiboè (Fiadomé), Avédjé, Blakpa, Kati, Pétsi, Xevi Komé, Zionou, Blakpa-Petsi, Fiagbome" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "AGOU-AKPLOLO", locs: "Akplolo Wogbé, Edah/Ekra, Tohoun" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "AGOU-KEBO", locs: "Kébo Djigbé, Agou Kébo Dogbadzi, Apéyémé, Domepémé, Agbladomé, Dalavé, Kébo Kpéta, Kébo Toè, Kebo Apeyeyeme, Kebo Dalave, Kebo Dzigbe" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "AGOU-ATIGBE", locs: "Abayémé, Atigbé- Zogbépimé, Zofié, Atigbe Abayeme, Sofie" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "AGOU-NYOGBO AGBETSIKO", locs: "Agou Nyogbo, Agbétiko" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "AGOU-NYOGBO DZIDJOLE", locs: "Agou Nyogbo" },
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "KATI", locs: "Kati, Avegame, Layikpodzi, Xevikope" },
+
+            { r: "Plateaux", p: "Agou", c: "Agou 2", can: "AGOTIME NORD", locs: "Adamé, Agotimé Adamé, Agotimé Nyitoé, Agotimé Zoukpé, Akoumassé, Bludo Kopé, Glikpo, Kpodjahon, Aboudzokope, Andokope, Avenokope, Kotorkope, Kpodzahon, Kumassi, Nyamessi, Nyidove 1, Zukpe" },
+            { r: "Plateaux", p: "Agou", c: "Agou 2", can: "AMOUSSOUKOPE", locs: "Agbadzi, Amoussoukopé, Atiyi, Damadé, Gblekopé, Kodjé, Wounougba, Wudzralé, Wutégblé" },
+            { r: "Plateaux", p: "Agou", c: "Agou 2", can: "ADZAKPA", locs: "Adzakpa, Agoudouvou, Deti Deke (Gbédé), Lankui, Letou Kopé, Wodomé, Adrakpo, Amegavikope, Bloudokope, Detideke, Ekpokope, Gbokope, Kpavou, Kpeve, Megbedzre, Tagba, Tagbolokope, Vakpo" },
+
+
+
+            // --- RÉGION MARITIME ---
+
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "TSÉVIÉ", locs: "Adanlokpodji, Adiakpo, Agbalipe, Assiama, Begbe, Deve, Didome, Hetszongo, Kolo, Dèdèkè, Kpali, Kpatefi, N’Danyi, Tekanyi, Tsiape, Wuagba, Weme, Boloumodji, Ceg De La Paix, Bleve, Daviemondji, Deme, Akaveme, Manoguiakpo, Akakpokondji Ou Wouto, Tsévié, Centrale, Zongo, Dalavemodji, Djidjole, Hetseavi, Hetsiavi, Lilikope, Lom-Nava, Mivakpo, Ville IV, Boloumondji, Dalavemodzi, Daviemodji, Kolo 1, Kpei" },
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "GBATOPE", locs: "Gbatope, Kodzo, Have, Adangbe, Gati Agodou, Gati Soun, Fongbe Apedome, Fongbe Dzogbedzi, Yobome, Yobo Sedzro, Ezo, Hove, Davedi, Didokpo, Adangbe-Kpeve, Ezor, Fongbe Boeti, Panplotideka" },
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "GBLAINVIE", locs: "Gblainvie, Avlata, Kpenou, Toumali, Apessime, Donon, Kpedome, Woukpe, He, Djogbedji, Kpota, Hedjegni, Tsati, Avedje, Dedje, Kloukpe-Gblainvie, Kloukpe-Djogbedji, Kpoguede Centre, Kpoguere Djogbedji, Sekope, Awazikope, Notsekpe, Atsave, Dafolegname, Plelouve, Gblainvie Avedze, Gblainvie Tchati, Kpenou Dono, Kpoguere" },
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "ABOBO", locs: "Abobo, Abobo Kpoguede, Dekpo-Boklotsi, Ligokope, Abobo Ziogba, Logoe, Sagonou, Zegle, Lebe, Abodiave, Avetah, Yogon, Nyamadji, Lowoe, Ketapui, Ameleki, Atitetigome, Adidome, Abolave, Logui, Aveta, Dekpo, Kpoguede, Nyamadzi, Zegle Apeyeme, Ziogba" },
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "DALAVÉ", locs: "Dalavé, Agoute, Ledikope, Djove, Heve, Lomegnonkope, Fiogble, Abossehoe, Agbadovinou, Hagblevou, Kladjeme, Tonoukouti, Have, Sewoeve  Adjogidi-Ayeto, Adjoguidi, Agbetiafa, Agodeke-Tsadome, Agodeke-Sadome, Amebleve, Sewove, Tontowuime" },
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "DAVIE", locs: "Davie, Asome, Tekpo, Adetikope, Djogbe, Tsikplonoukondji, Bayeme, Kadekope, Agoudavikope, Tsive, Gbogan Kope, Agbedevi Kope, Djadou, Kope, Anyave, Toume, Amla, Anome, Assome, Davie Toume, Davie-Djogbe, Devime, Tekpo Rail" },
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "DJAGBLE", locs: "Achikoe, Akodessawa, Amelibome, Ananape, Deve, Gbamakope, Heti, Hlankope, Kleme, Klobateme, Kodeme, Djagble (Kpota), Plakome, Pokuidji, Zovadje, Adjidome, Adjidotun, Agodome, Akodessewa-Agewolekope, Assikoe, Djigbe, Gbama-Hlan, Lydja, Yohonou, Djagble, Djagble-Kleme" },
+            { r: "Maritime", p: "Zio", c: "Zio 1", can: "KPOME", locs: "Kpome Apeyeme, Agome, Djogblakope, Tansi, Tsame, Akadjame, Tokpanou, Hagblevou, Kpogame, Apeyeyeme, Dzogblakope" },
+
+            { r: "Maritime", p: "Zio", c: "Zio 2", can: "KOVIE", locs: "Kovie, Tedo (Ananissime), Atinve, Dzemeke (Sevexo), Dzogbekope, Gbave, Gbagame, Gokakope, Koepedo, Tsive, Seva-Gbleta, Dzogbeto, Kpedji, Alagbadza, Bame, Agbalaho, Atide, Demime, Ablotri, Agoutovego, Seveho, Tedo" },
+            { r: "Maritime", p: "Zio", c: "Zio 2", can: "MISSION TOVE", locs: "Mission Tove, Apedome, Adidome, Apetsito, Kpala, Koyito, Togblekope, Agosito, Moe Kope, Gbedzetsan, Djogbekope, Ntsame, Agome, Kristo-Afessito, Kristo Apesito" },
+            { r: "Maritime", p: "Zio", c: "Zio 2", can: "BOLOU", locs: "Kpeta, Klokpoe, Gatigble, Agbadome, Ativeme, Bolougan, Adanto, Bolou Kpeme, Alokoegbe, Kpota, Dekpo, Agomoenou, Kpodoave, Bolou Agbadome, Bolou Dekpo, Bolou Gatigble, Bolou Klokpoe, Villa Kpeta" },
+            { r: "Maritime", p: "Zio", c: "Zio 2", can: "WLI", locs: "Wli Apedome, Mivakpo, Ziowunu, Kouahoe, Meduime, Ziapeme, Bongbe, Kouve, Hededzi Kope, Wueme, Wli Centre, Bonougbe, Wli Kouaxoe, Wli Meduime, Wli Mivakpo" },
+
+            { r: "Maritime", p: "Zio", c: "Zio 3", can: "AGBELOUVE", locs: "Agbelouve, Avedjé, Kanyikpedji, Adokpoé, Kpevego, Agbodjekpoé I, Agbodjekpoé II, Nyigbé, Todomé, Gamé Kové, Begbé, Game Lili, Agokpala, Atikoloé, Adjoni Kopé, Tokpévia, Kotso Kopé, Kodjé, Aké, Fokpé, Kplaba Aflagbé, Kplaba Mayikou, Tsito, Adzralakopé, Hagbem, Kouniko, Logové, Atiho, Lonvo, Awati, Agokpé, Akpavekopé, Woutou, Gavikopé, Atitoé, Datiho, Gamé Nyativé, Lom Nava, Abolodji, Akakpodjekopé, Kpoklolo, Takpo, Foulanikondji, Wolokopé, Danti, Akpadzekopé, Aziflegbé, Agblevé, Nyativé, Kodze, Kondo Kope, Tokpo, Wengo, Abalokope, Agbakope, Agbodjekpo, Agbodjekpoe, Akey, Ataregbe, Atikole, Avedze, Dadoukpe, Kplaba, Tomefa, Trekpedji" },
+            { r: "Maritime", p: "Zio", c: "Zio 3", can: "GAME", locs: "Game Seva, Ayakope, Gamegble, Agamahe, Trekpedzi, Boga, Akotokope, Motsi, Blakpa, Haho-Kpessime, Agbleve, Akati, Tovi, Kpetoe, Kogbe, Djagble, Kpowli, Lom Nava, Togba, Bedjeme, Doglobo, Ahave, Tove, Hakedji, Zado-Kope, Afougadji, Vouley, Kpakpatowou" },
+
+            { r: "Maritime", p: "Zio", c: "Zio 4", can: "GAPE CENTRE", locs: "Wonougba, Bani Kope, Gape, Deve, Kpedzi, Dzatikpo, Aholou Kope, Hlihagbé, Anazivé, Nyassivé, Agodokpé, Tsikalin, Gapé Kové, Gapé Centre, Togodoé, Agaza, Aloyi, Adzido, Avelebé, Avegan, Atchanvé, Sagodeké, Zevé, Etoé, Frangadua, Tokpli, Tsingoé, Kpevé, Fomekponowoé, Guindji, Dekamé, Djakpo, Nyanetsi, Adamkodji, Tavekoemé, Glozoukopé, Mavegan, Batekpo, Bidikopetokplakopé (Atsanvé), Koubinoukoé, Djatimé, Agokpoé, Amekpé, Kpeyi, Doevé, Lokpa Kopé, Aklassoukopé, Wlomé, Agbetim, Dekpo, Bedjemé, Azi Kopé, Tutu Kopé, Assikewé, Dahumé, Tonoumassé, Egbé, Lokoudopé, Adjaato, Kové, Darekpé, Djavemé, Wouvé, Dedeké, Lotoegodo, Agadjakpe, Dzogbedzi, Kouni, Atigome Dzakpo, Dzakpo, Gape-Agadza, Gape-Deve, Gape-Nyita, Tsikale" },
+            { r: "Maritime", p: "Zio", c: "Zio 4", can: "GAPE KONDJI", locs: "Gape-Kpodzi, Agokope, Agotideke, Kpedome, Akpakpedome, Alokpa, Atiketoe, Batoume, Dafolenyame, Dokope, Dzogbekope, Kpetoe, Tsiyeko, Tsoeta, Wueve, Yrodo, Banikope, Gape-Guindji, Gape-Wonougba, Tokpli, Alakpa, Frangadua, Guindzi, Wonougba" },
+
+            { r: "Maritime", p: "Yoto", c: "Yoto 1", can: "TABLIGBO", locs: "Zébé, Sexonou Kondji, Tahé, Afonouvi Komé, Cité A, Akpadjavi-Kondji, Badé Kopé, Cité B, Wogba Kondji, Zongo, Agbo Komé, N'Tifafa Komé, Ga Kondji, Tabligbo, Messegan Kondji, Sewavikopé, Agnono Komé, Akpané Kopé (5), Doudawa, Setekpo, Kpokpo-Kondji" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 1", can: "AMOUSSIME", locs: "Amoussimé-Gawou Kondji, Afatodji-Kondji, Gnawoémé, Noutonkou-Kondji, Tona-Kondji II, Akplagassou-Kondji, Ammoussimé, Adabadji Kondji II, Amegnona-Kondji, Tanou, Adeti-Kondji, Afantodji-Kondji, Amoussime, Tona-Kondji" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 1", can: "KOUVE", locs: "Vatekpo, Gnamassivé, Adzotofé, Gado, Gboli, Badougbé, Lom Nava, Banou, Atsapé, Dadavé, Dedji, Tsinoukomé, Dopigbé, Atran, Dafo, Logotomé, Kouvé, Afagandji, Dafor, Nousroukope" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 1", can: "KINI-KONDJI", locs: "Kini Kondji, Sikpé Adegou, Awouté Kondji, Wogblavi Kondji, Amblesso Kondji, Tona Kondji I, Bedjeme" },
+
+            { r: "Maritime", p: "Yoto", c: "Yoto 2", can: "AHEPE", locs: "Apédomé, Assikor, Klowla, Notsè, Akposso, Dévikémè, Akoudokpo, Agbleta, Ahepe, Hekpoe, Kpesse-Kope, Kpokli, Kpowla, Seva" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 2", can: "TCHEKPO", locs: "Tchekpo Anagali, Tchekpo-Dedekpoé, Tchekpo Devé Djigbé, Tchekpo Devé Apéyémé, Esse Zogbedji, Esse Nadjé, Tchékpo Madoavé, Attisso Kope, Agbekou, Anagali, Avedji, Avehe, Davou, Deve, Djigbe, Dzogbe, Esse-Nadjin, Gougoume, Koleve, Tchekpo" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 2", can: "ZAFI", locs: "Yoto Kopé, Kpondavé, Zafi Hetctavi, Zafi Tsrami, Zafi Doko, Adikpe, Adjove, Dokor, Haho-Kpodji, Hetchavi, Mayikou, Tchrami, Tove" },
+
+            { r: "Maritime", p: "Yoto", c: "Yoto 3", can: "ESSE-GODJIN", locs: "Esse–Godjin, Esse–Ana, Esse–Goutinme, Esse–Gblé, Lakata, Dalagbamé, Domezé–Kopé, Temanou–Kopé, Batoé, Agboguedé, Atiyé–Kopé, Lakpadji, Godjinme, Agboguedehoe, Atikpatafo, Ndewome Kondji" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 3", can: "GBOTO", locs: "Gboto-Vodoupé, Gboto-Klohomé, Gboto-Assigamè, Gboto -Kossidamé, Gboto-Zévé, Gboto-Atchamé, Assigame, Atchame, Klohome, Kossidame, Vodoupe, Zeve, Zogbe" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 3", can: "SEDOME", locs: "Agbossehoé, Agodomé, Dzrèkpon, Hognon-Kondji, Kodéhoé, Tomety- Kondji, Togodo, Zouvi, Sikpe-Afidegnon, Sédomé, Agbagame, Batoe, Kodohoe Kansihoe, Abossehoe, Adjanou-Kondji, Agbezoudohoe, Avegodoe, Klaleveme" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 3", can: "TOKPLI", locs: "Tokpli, Akladjenou, Sika Kondji, Atakpamédé, Assou Kondji, Afikou Kondji, Afatondji Kondji, Trime, Adabadji-Kondji, Adabiam, Ahlemegni-Kondji, Akmonebdojiudanou-, Aksosnoduji-Kondji, Ameboudanou-, Avegame, Messeko-Kondji, Monenou, Seva-Tokpli" },
+            { r: "Maritime", p: "Yoto", c: "Yoto 3", can: "TOMETY-KONDJI", locs: "Tomety-Kondji, Dawohoe, Zouvi, Agodome, Ahoagahoe, Alakpadji, Atchahoe, Donomade, Hognon Kondji, Tetekpo Kope" },
+
+            { r: "Maritime", p: "Ave", c: "Ave 1 ", can: "KEVE", locs: "Afiadenyigba, Agbozome, Agotimé, Amaké, Anyron, Agogomé, Atiyime, Avedome, Avevoin, Awatome, Howuieve, Keve, Dangbuikopé, Lomé, Sevakpota, Tonouvée, Vakpo, Vouiyimée, Wuto, Vometchin, Zogbépimée, Gbessa Kopé, Atsave Avedome, Dzogbepime, Dzokope, Howuive, Keve Gare, Keve-Agoudja, Keve-Apeyeme, Quartier Latin, Tonouve, Yometchin" },
+            { r: "Maritime", p: "Ave", c: "Ave 1 ", can: "ZOLO", locs: "Edzi, Alowogbé, Zolo, Vodome, Tsiviepe, Yope, Zebede, Dzogadzé, Tsiviepé-Vodomé, Tové Ou Agbedoekopé, Todomé, Fedemé, Yotsi, Toumonou, Alawogbe, Dzolo" },
+            { r: "Maritime", p: "Ave", c: "Ave 1 ", can: "TOVEGAN", locs: "Tovegan, Koudassi-Gare, Agbessia, Segbedzikope(Amedowinyi), Baka Kopé, Hékpé, Avégo, Agbatchi, Dzidokpui, Akutsavi, Kpedeto, Lomoe, Fokpo 1, Fokpo 2, Amednyrope, Ego-Kope, Eklu-Kope, Didrive, Have, Gabi, Fialonu, Klobave, Makumavo, Foguegue, Anyave, Agonyo-Kope, Adigbli-Kope, Agobaba, Nyitakpo, Youdassi-Gbogamé, Kpetavi, Agotime-Takpla, Avoukopé, Agbo Kopé, Aziafo Kopée, Agrona Kopée, Touké, Alagbakopé, Tédahoée, Assi Kopée, Agbledo, Agbatehe, Aziafokope, Koudassi Gbogame, Makoumavo, Segbedjikope" },
+            { r: "Maritime", p: "Ave", c: "Ave 1", can: "ASSAHOUN", locs: "Assahoun, Attituwui, Ando-Yoto, Dzegba-Kondji, Ando-Bedo, Ando-Centre, Atti-Apedokoe, Agotime Ou Agohomé, Toumonou, Agbadjanaké, Batoumé, Atti-Atovou, Nyamassiva, Fiakondji, Atsekopé, Agoklé, Akatikopé, Adekpui, Ando-Ablavé, Amagotideke, Amenyido-Kondzi, Atti-Nufoe, Bedikpe, Nyanyame, Yovokome, Ana, Asahoun-Pedome, Atti-Noufoe, Atti-Touwui, Nyamessiva" },
+            { r: "Maritime", p: "Ave", c: "Ave 1", can: "Ando", locs: "Adekpui, Akati Kope, Ando Centre, Ando Kpegbe, Ando-Yoto, Taklave, Ando Klomekpui, Ando-Bedo, Ando-Kpome, Andopeme, Dzegbakondzi, Toumonou" },
+
+            { r: "Maritime", p: "Ave", c: "Ave 2", can: "NOEPE", locs: "Noepé, Adougblewou, Demimé, Atsakpo, N’Tsamée, Gofi, Azamalogo, Noepedo, Agomé, Adougblewu, Agome-Gofi" },
+            { r: "Maritime", p: "Ave", c: "Ave 2", can: "BADJA", locs: "Badja, Dodzi, Agoudja Badja, Kouvé, Kplomegbé, Wonougba, Dokplala, Agové, Bagbe Route, Bagbe Village, Bagbe Gare, Houve, Gokakope, Gbalaho, Dzemegbé, Badza" },
+            { r: "Maritime", p: "Ave", c: "Ave 2", can: "AKEPE", locs: "Attidjin, Assiamagblé, Akepedo, Yidavé, Akepé, Assiamagbleta" },
+            { r: "Maritime", p: "Ave", c: "Ave 2", can: "APEYEME", locs: "Apéyémé, Kpetsumé, Agledo, Bedikpé, Attito, Aboledo, Gavo Kopé, Kedji, Anna, Kpodji, Atchavé, Gadjatoe, Lom Nava, Kayido" },
+
+            { r: "Maritime", p: "Vo", c: "Vo 1", can: "VOGAN", locs: "Agbemavo, Agbokou Kondji, Agbopé, Amoindi, Assiko, Atapé, Adjrigo, Bamé, Commandant Kondji, Doumakpoé, Gbekemé, Gendarmerie, Hôpital, Kopo, Lycée, Missohou Kondji, Sagada, Sopé, Tomedonou Kondji, Vakpo, Vogan, Massé Kopé, Koussegbé, Legbanou Djokopé, Hedjegan, Adankpo Kondji, Ameyo Kopé, Vo Dabou, Pedakondji, Kéta Hounlokoé, Afidegnigban, Sagadakopé, Logogba, Afowouimé, Nyivé Agblegé, Wogba, Sokomé, Tovemé, Apeti Kopé, Hangbakoé, Atsou Kopé, Tokoindji, Live, Kpotavé, Hedjé, Hedjekpoé, Agouti Kopé, Légbanou, Glevé, Kpetemé, Adouho, Boko-Totsoagni, Hotatime, Vo-Badou, Vo-Kpetsu, Adjrego, Afidegnigba, Amoindji, Apawouhanou, Assinloin, Atahonou, Avetchedome, Batekpo, Gnive, Hedome, Hounlokoe, Tekponou, Vo-Afowuime, Vogan Marche" },
+            { r: "Maritime", p: "Vo", c: "Vo 1", can: "Vo-Koutime", locs: "Adjodogou, Atchandome, Boko, Kpota-Wessome, Soko-Hagoume, Vo-Koutime, Vo-Kponou, Vo-Topkli, Atsitsogbe, Dzrekpo Apedome, Kponou Djekotoe, Mamissi, Mamissi Bas, Netikope, Soko-Attetedome, Solikope" },
+
+            { r: "Maritime", p: "Vo", c: "Vo 2", can: "TOGOVILLE", locs: "Togoville, Adjome Badougbe, Keta Badougbe, Keta Agbantokope, Ekpui, Atikponou, Badougbe-Keta, Love, Agbanto Kope, Badougbe, Badougbe Atsanve, Badougbe-Adjome, Ekpui Adjidodeka" },
+            { r: "Maritime", p: "Vo", c: "Vo 2", can: "ANYIRON KOPE", locs: "Anyironkope, Djankèssè, Kéta Akoda, Kouénou, Agovi, Anyronkope, Djankasse" },
+
+            { r: "Maritime", p: "Vo", c: "Vo 3", can: "DZREKPO", locs: "Dzrekpo-Centre, Yohonou, Kpakpalakpenou, Hagou, Koutivimé, Atchanveglo, Apedomé, Djavemé, Hedomé, Dzrekpo-Bas, Badjenopé, Kpoguédé, Klologo-Centre, Klologo-Gagnon, Klologo-Mongome, Zooti-Centre, Zooti-Glopé, Zooti-Attetedomé, Zooti-Atchanvé, Zooti-Kuessankondji, Zooti-Soko, Zooti Adeho, Dzrekpo Hagou, Eapttpi Tzeodootmi E, Epp Zooti, Kaltotiltoegdoome, Klologo, Klologo Logove, Mogome, Tchadipeme, Zooti" },
+            { r: "Maritime", p: "Vo", c: "Vo 3", can: "MOME HOUNKPATI", locs: "Momé, Momé-Adjidomé, Momé-Gbedepemé, Momé-Hagou, Momé-Katihoé, Momé-Balimé, Momé-Avegluidjigan, Momé-Wodzepé, Atchansi Centre, Gnito" },
+            { r: "Maritime", p: "Vo", c: "Vo 3", can: "DAGBATI", locs: "Dagbati, Asso, Attivé-Kossidame, Atsetsi, Atetemé, Ahonkpé, Agotekpé, Agbedehonou, Koussin, Kpotavé-Avia, Kpeyidji, Tchadomé, Bado, Seledjime, Vo-Attive, Agnihenou, Dagbati Tchadome, Dagbati Todome, Djokoto, Gapneityaevyeegmleo, Gbedehonou, Gnitaveglo, Kaopemyeeyeme, Kome, Kpedji Apeyeyeme, Vo-Asso, Wougandome" },
+
+            { r: "Maritime", p: "Vo", c: "Vo 4", can: "AKOUMAPE", locs: "Akoumapé Assiko, Akoumapé Doulassa, Akoumapé Atsanvé, Akoumapé, Hahotoé, Koveto, Nimabio, Gnita, Tigoé, Akatsan, Asso Apegan, Nyita-Apeyeme, Adedikope, Adkoouulamsaspaem E, Adsosuola Aspseagmaen, Agotokpa, Djapleme, Madja" },
+            { r: "Maritime", p: "Vo", c: "Vo 4", can: "SEVAGAN", locs: "Sevagan, Akodessewa, Tchidemé, Kpotossou-Hédjé, Ttchilimé, Bebemé, Apenyigbé, Sevatonou, Guegledji, Azignekpodji, Kpoguédé, Kpota, Tavloukamé, Kopéyéyé, Siakado, Kogboé, Kponvemé, Watikopé, Agbleta, Ktspiohtoonsosuou Hedje, Tchilime" },
+            { r: "Maritime", p: "Vo", c: "Vo 4", can: "Hahotoe", locs: "Hahotoe, Sadayame, Vodje" },
+
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "AFAGNAN GBLETA", locs: "Afagnan Gbleta Atchadome, Afagnan Gbleta Madeome, Afagnan Gbleta Kpoteme, Afagnagan, Kpessou, Momé-Gbave, Alouenou-Gba Guidito, Deveme, Djonoukouve, Gladjoe, Klikame, Agove, Houdjodeke, Weme" },
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "AGOME-GLOZOU", locs: "Agbetiko, Agome-Glozou, Agome Seva, Alouenou Kpeteto, Sbatonou, Gbandidi, Adame, Aveve, Kpondave, Sakpove, Avegbo" },
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "Kpetsou", locs: "Fiove, Gninoume, Kpetsou, Kpoteme, Lom-Nava" },
+
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 2", can: "ATTITOGON", locs: "Attitogon, Attive, Avoutokpa, Masseda, Mawoussi, Tannou, Logowome, Adeho Toulasssi, Blama Condji, Kewome, Masseville, Zooti, Adeho / Toulassi, Awave, Blama-Kondji, Hebouedome" },
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 2", can: "HOUMPOU", locs: "Hompou, Agli Kopé, Djakpo Kondji, Ayipoé Kopé, Jacob Kopé, Houndebakin Kopé, Tonato Kondji, Adanconou Kondji, Amouzou Glita, Gnagbodjo Kopé, Sossou Gbowoe Kopé, Djakpassou Kopé, Wonekodjo Kopé, Sonlessomé Kopé, Fangnikossou, Amouzou Yokpo Kopé, Juge Kopé, Biosse Kopée, Apouvi Kope, Todome" },
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 2", can: "Agbetiko", locs: "Agbetiko, Agome-Seva, Batonou" },
+
+            { r: "Maritime", p: "Lacs", c: "Lacs 1", can: "ANEHO", locs: "Adjido, Agbodji, Avemé, Badji, Dégbénou, Djamadji-Ella, Djossi, Fantékomé, Flamani, Kinmide Kondji, Kpota, Landjo, Légbanou, Manya, Messan Kondji, Nlèssi, Payimé, Sokou Kondji, Vodougbé, Yessuvito, Zébé, Zongo, Habitat, Sanvee Condji, Amadote, Apounoukpa, Djamadji" },
+            { r: "Maritime", p: "Lacs", c: "Lacs 1", can: "GLIDJI", locs: "Agokpame, Agouegan, Assou Kope, Glidji, Sigbehoue, Zalive, Zowla Kpoguede, Zowlagan, Abatame, Agbanou, Atikpo Kondji, Atotideka, Fio-Condji, Keta Assoukope, Agodja, Akagandji, Aviation, Tossouhon" },
+
+            { r: "Maritime", p: "Lacs", c: "Lacs 2", can: "AKLAKOU", locs: "Agbanakin, Aklakou, Atoueta, Azimedossou, Azimegan, Djeta, Hetchavi, Hlande, Melonkou, Sakpovo, Seko, Sivame, Zanve, Adame, Apegame, Apeti Condji, Attisso Condji, Aveve, Kleve, Seha Kpota, Zouhonou, Agbandougni, Agbonougbadja, Atoeta, Avedome, Djondo Condji, Doudji Condji, Gbogbo Kondji, Gnawoe Condji, Hetchiavi Klindome, Hlande Kpodji, Kpodji, Mederos, Pedakome, Sakpove" },
+            { r: "Maritime", p: "Lacs", c: "Lacs 2", can: "Agouegan", locs: "Ablogame, Agotime, Agouegan, Ahouegame, Kpotaga, Alemou Kondji, Atele Kondji, Huongatome, Zanve" },
+
+            { r: "Maritime", p: "Lacs", c: "Lacs 3", can: "AGBODRAFO", locs: "Afiadegnigban, Agbata I, Agbata II, Agbavi, Agbodan Kope, Agbodrafo, Agovoudou, Amedehoeve, Dague, Devikinme, Gbodjome, Goumou Kope, Kpeme, Kpessi, Kpogan-Agbetiko, Nimanya, Sewa Tchri Kope, Togo Kome, Aoudjigbe Kope, Batekope, Adjakakome, Apetokome, Djasseme, Follygah, Kpotame, Agbata Allaglo, Agbata Lanzo, Abate-Kope, Agbagame, Devikeme, Nimagna, Pedakome" },
+
+            { r: "Maritime", p: "Lacs", c: "Lacs 4", can: "ANFOIN", locs: "Adjove, Adoukowe, Anfoin, Apeto Kondji, Gabiam, Hangoume, Koliafo, Melly Djigbe, Melly Dome, Tokpo, Gabian Condji, Adoukowoue, Anfoin Kpota, Assagba Kope, Gamekope, Koutigbe, Kponton, Logovipe" },
+            { r: "Maritime", p: "Lacs", c: "Lacs 4", can: "FIATA", locs: "Fiata, Aname Kpodji, Aname Agbagame, Avele, Ganave Pédakondji, Zogbegan, Peda-Kondji, Aname, Fiata Dome" },
+            { r: "Maritime", p: "Lacs", c: "Lacs 4", can: "Ganave", locs: "Adjove, Assoukakope, Ganave, Melly-Djigbe, Melly-Dome" },
+
+
+            // --- DAGL---  
+
+
+            { r: "DAGL", p: "AGOÉ-NYIVE", c: "Agoé-Nyivé 1", can: "AGOE-NYIVE", locs: "Zogbegan, Ahongakopé Assiyéyé, Anokui Komé Kopé, Anokui Nogo, Anomégblé, Djigblé, Kélégougan Digblé, Klève Assiyéyé, Totsi Klèvegblé, Aveyeme, Togome, Adougba, Agoe-Nyivé, Houmbi, Kitidjan, Atsanve Centre, Kleve Demakpoé, Fiovi, Logope, Kpatefi 1, Kpatefi 2, Adido Dokpo, Apelebuime, Nyiveme Centre, Cacaveli, Nyiveme Totsi, Anomé, Elavanyon, Apenyigbi, Nyiveme Gbonvé, Agbodeka-Kopé, Telessou, Alah-Kopé, Gbonvié, Gozan Kopé, Houmbigblé, Djomakou, Alafia Kopé, Aho Kopé, Anokui, Agbodjalou Kopé, Agbodo Kopé, Bessé, Nyamassigan, Nyamassivi, Sogbossito, Boto Kopé, Demakpoe, Ahoukpoe, Zongo, Zilidzi, Agbagnowoassi, Adjougba, Adjougba-Sorad, Agoe Assiyeye, Alogope, Apelebime, Assiyeye, Atsanve, Aveyme, Demakpoe Est, Nyamassi" },
+
+            { r: "DAGL", p: "AGOÉ-NYIVE", c: "Agoé-Nyivé 2", can: "LEGBASSITO", locs: "Kpokplovimé, Assiko, Silivi Kopé, Madjikpeto, Zovadjin, Agossito, Legbassito, Kove Sivagno, Kove Ahondjo Kopé, Atieme, Daliko, Danlime, Amadenta, Amadenta-Anaglikopé, Doutekopé, Atieme-Ahonkpoé, Ahonkpoé, Bokpoko, Avinato, Yohonou, Kpogli Kopé, Athieme" },
+
+            { r: "DAGL", p: "AGOÉ-NYIVE", c: "Agoé-Nyivé 3", can: "VAKPOSSITO", locs: "Atsanve, Awoudja Kope, Elavanyonyo Atsanve, Elavanyo Kleve, Vakpossito, Hossoukope" },
+
+            { r: "DAGL", p: "AGOÉ-NYIVE", c: "Agoé-Nyivé 4", can: "TOGBLEKOPE", locs: "Djélédzi, Kotokoli Zongo, Haoussa Zongo, Togblé Kopé, Akoin, Alinka Kopé, Fidoukpui, Dikame, Kouzan Kopé, Tovou Ganou(Awito), Guenou Kopé, Alinka Apelebamé, Alinka Nyivemé, Alinka, Klevé, Avoukopé, Degomé, Ditcha Kopé, Fidokpui, Kpedevi Kopé, Metedenui, Togblé Atsanvé, Togblé Komi, Aveyimé, Togblé Nyivemé, Zilidzi" },
+
+            { r: "DAGL", p: "AGOÉ-NYIVE", c: "Agoé-Nyivé 5", can: "SANGUERA", locs: "Sanguera Centre, Atigankopé, Klemé, Kohé, Afiadegnigban, Dangbessito, Klikamé, Akpaka Kopé, Sanyrako, Zopomahé, Zossimé, Nanegbé, Assigomé(Dopegno-Kopé), Vogomé, Kopegan, Dekpo, Tsrokpossime, Fozui Anyigbé, Agbleliko, Afiadegnigba, Sagnrako, Sanguera, Trokpossime" },
+
+            { r: "DAGL", p: "AGOÉ-NYIVE", c: "Agoé-Nyivé 6", can: "ADÉTIKOPÉ", locs: "Adetikope-Centre, Adoglove, Agnavé, Agotime, Devime, Dzove, Kladjeme, Kpokpome-Agute, Kpotave, Lomenyo Kope, Tonoukouti, Tsikplonou-Kondji, Adetikope, Lomegnonkope, Tsikplonoukondi" },
+
+            { r: "DAGL", p: "GOLFE", c: "Golfe 1", can: "BE", locs: "Bè, Ablogame, Adakpame, Akodessewa, Akodessewa Kponou, Akodessewa Kpota, Anthonio Nétimé, Attiégou, Bè Ahligo, Bè Apéyémé, Bè Hédjé, Bè Kpota, Kanyikopé, Kélégougan, Klobatamé, Kotokou Kondji, N’Tifafa Komé, Souza Nétimé, Wété, Anfame, Bè Kpéhénou, Gbényédji, Zone Portuaire" },
+
+            { r: "DAGL", p: "GOLFE", c: "Golfe 2", can: "HEDERANAWOE", locs: "Atiégou 2, Kélégougan 2, Hédzranawoé, Kégué, Tokoin Aéroport, Tokoin Tamé, Tokoin Wuiti, Saint Joseph, Tokoin Forever, Tokoin N'Kafu, Atiegou, Hedzranawoe N°1, Hedzranawoe N°2" },
+
+            { r: "DAGL", p: "GOLFE", c: "Golfe 3", can: "DOUMASSESSE", locs: "Caisse Nationale De Sécurité, Sociale, Dogbeavou-Gbonvié, Doumassessé, Lome II Massohoin, Tokoin Atchanti, Tokoin Elavagnon Lycee, Université De Lomé, Résidence Du Bénin, Tokoin Lycée, Massouhoin, Tokoin Elavagnon" },
+
+            { r: "DAGL", p: "GOLFE", c: "Golfe 4", can: "AMOUTIVE", locs: "Dogbeavou, Casablanca, Akossombo, Tokoin Solidarité, Abobokomé, Abové, Adawlato, Adoboukomé, Amoutivé, Bassadji, Bè Klikamé, Beniglato, Biossé, Doulassamé, Kodjoviakopé, Lom Nava, N’Tifafakome, Nyékonakpoé, Octaviano-Netimé, Tokoin Gbadago, Tokoin Hôpital, Tokoin Ouest Kodomé, Wétrivi Kondji, Sanguera-Freau-Jardin, Agbadahonou, Aguiakomé, Fréau Jardin, Hanoukopé, Kokétimé, Quartier Administratif, Adzomayi, Attikpa, Gbadago, Seminaire, Super Tako" },
+
+            { r: "DAGL", p: "GOLFE", c: "Golfe 5", can: "AFLAO GAKLI", locs: "Aflao Gakli, Agbalepedogan, Avenou-Batome, Totsivi-Gblinkome, Totsigan, Adidoade, Avedji-Telessou, Avedji-Anyigbe, Soviepe, Adidogome Teshie, Hetsavi- Wessome, Amadahome, Apedokoe, Legbanou, Alepgedbaonkooue, Alevgedbajin Toeulessou, Avedji-Agnigbe, Avedji-Agnigbe Sud, Avenou-Kletigome, Batome, Gakli, Teshie, Tokoin Ouest" },
+
+            { r: "DAGL", p: "GOLFE", c: "Golfe 6", can: "BAGUIDA", locs: "Gbétsogbé, Toroba, N'Do-Kope, Zilito Ou Adanmavo, Logoti, Baguida, Avepozo, Kossi-Gah, Agodeke, Kpogan, Boboloe, Devego, Adamavo, Kagome, Kpogan Lambou, Maya Kope" },
+
+            { r: "DAGL", p: "GOLFE", c: "Golfe 7", can: "AFLAO-SAGBADO", locs: "Ablogomé, Apédokoé Agokpanou, Apédokoé Gbomamé, Awatamé, Agotimé, Akato Avoémé, Akato Démé, Akato Viépé, Dékpor/Wougomé Dékpor, Gblenkomégan, Klémé Agokpanou, Klémé Yéwépé, Lankouvi, Lankouvi Sakani, Sagbado, Sagbado Assiyéyé, Sagbado Zanvi, Segbé Douane, Segbégan, Wonyomé, Wougomé, Yokoé Agblégan, Yokoé Kopégan" },
+
+            // --- AJOUT : DONNEES ISSUES DU FICHIER WURI_ADC_Vague1 (localites manquantes) ---
+
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Agou-Tavie", locs: "Agou Gadzefe, Agou Tomegbe, Agou-Klonou" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Agou-Nyogbo-Sud", locs: "Nyogbo Sud" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Agou-Akpolo", locs: "Akplolo, Kanye, Konda" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Assahoun-Fiagbe", locs: "Assahoun-Fiagbe" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Agou-Atigbe", locs: "Atigbe Dzogbefeme" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Agou-Yiboe", locs: "Avedze" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Gadja", locs: "Avetonou, Dzamakondzi, Gadzagan, Kologan, Kpovenou" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Kati", locs: "Ekpla, Kati" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Agou-Nyogbo-Nord", locs: "Nyogbo Nord" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 1", can: "Agou-Kebo", locs: "Kebo Dogbadzi" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 2", can: "Agotime-Nord", locs: "Agotime-Adame, Nyitoe" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 2", can: "Amoussoukope", locs: "Amoussoukope, Glekope" },
+            { r: "Plateaux", p: "Agou", c: "AGOU 2", can: "Agotime-Sud", locs: "Wodome" },
+
+            { r: "Plateaux", p: "Amou", c: "AMOU 1", can: "Amlame (Ouma)", locs: "Agadji, Amlame II, Kpete, Adam-Kope, Adjahoun, Adjahoun-Todji, Agadji-Todji I, Agadji-Todji II, Amlame, Ezime, Gnametcho-Kope, Iledi, One, Oulita-Plateau" },
+            { r: "Plateaux", p: "Amou", c: "AMOU 2", can: "Sodo", locs: "Katsave, Sodo Zion, Sodo, Sodo-Todji" },
+            { r: "Plateaux", p: "Amou", c: "AMOU 3", can: "Avedje-Itadji", locs: "Avedje, Adjigo, Agbodomodji, Kpati Cope, Loto, Okafou" },
+            { r: "Plateaux", p: "Amou", c: "AMOU 3", can: "Evou", locs: "Yao-Kope, Evou-Apegame, Evou-Kodegbe, Idao, Ofe" },
+
+            { r: "Plateaux", p: "Danyi", c: "DANYI 1", can: "Kakpa", locs: "Dzedrame, Kakpa, N'Digbe" },
+            { r: "Plateaux", p: "Danyi", c: "DANYI 1", can: "Atigba", locs: "Apeyeme, Atigba, Dzogbegan, Mempeassem" },
+            { r: "Plateaux", p: "Danyi", c: "DANYI 2", can: "Ahlon", locs: "Bogo, Akayo, Akayo II, Awunadjassi, Denou, Itobole, Onanale, Sassanou, Tinipe" },
+            { r: "Plateaux", p: "Danyi", c: "DANYI 2", can: "Elavanyo", locs: "Elavanyo" },
+            { r: "Plateaux", p: "Danyi", c: "DANYI 2", can: "Evita", locs: "Hiheatro, Ankuvi, Dafo, Gbaladze, Kpeto, Woeve" },
+
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 1", can: "Kpadape", locs: "Kpadape, Yeviepe" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 1", can: "Kpalime", locs: "Detideke, Kluguekodzi, Kpeta, Nogo, Nyiveme, Samkodzi, Tsihinu, Zomayi, Zongo, Agoe Kondji, Agogome, Atakpame Kodzi, Dome, Dzodzekondji, Kpegolonou, Kpogandzi, Lom-Nava, Numetukodzi" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 1", can: "Tome", locs: "Tchokpo Kope" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 1", can: "Tove", locs: "Atchave, Tove-Dzigbe" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 1", can: "Yokele", locs: "Danyinu, Yokele, Govu" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 1", can: "Gbalave", locs: "Gbalave Ahundzo" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 1", can: "Wome", locs: "Klo Mayondi, Nyive-Kalakala, Wome" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 2", can: "Kpime", locs: "Agotime Kope, Blifou, Kpime Seva, Kpime Woume" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 2", can: "Lavie-Apedome", locs: "Lavie-Apedome" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 2", can: "Lavie", locs: "Lavie-Agoviepe, Lavie-Hume" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 3", can: "Kuma", locs: "Kuma-Adame, Kuma-Apoti, Kuma-Tokpli, Kuma-Tsame-Totsi, Kuma-Apeyeme, Kuma-Bala, Kuma-Dovota, Kuma-Dunyo, Kuma-Konda" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 3", can: "Agome", locs: "Agome-Yoh, Kpodzi, Kusuntu" },
+            { r: "Plateaux", p: "Kloto", c: "KLOTO 3", can: "Agome-Tomegbe", locs: "Agome-Tomegbe" },
+
+            { r: "Plateaux", p: "Kpele", c: "KPELE 1", can: "Kpele-Govie", locs: "Govie-Konda" },
+            { r: "Plateaux", p: "Kpele", c: "KPELE 1", can: "Kpele-Akata", locs: "Akata-Adagali, Akata-Agame, Akata-Akanou" },
+            { r: "Plateaux", p: "Kpele", c: "KPELE 1", can: "Kpele-Novive", locs: "Adeta, Adeta-Kpotame, Adeta-Zongo, Bodze, Kpele-Atime, Kpele-Beme, Tsiko-Agame" },
+            { r: "Plateaux", p: "Kpele", c: "KPELE 1", can: "Kpele-Dawlotou", locs: "Kpekpeta, Nunyata, Toutou" },
+            { r: "Plateaux", p: "Kpele", c: "KPELE 2", can: "Kpele-Kame", locs: "Kpele-Agave, Kpele-Agote, Kpele-Aveho" },
+            { r: "Plateaux", p: "Kpele", c: "KPELE 2", can: "Kpele-Nord", locs: "Kpele-Ele, Mama Kope" },
+            { r: "Plateaux", p: "Kpele", c: "KPELE 2", can: "Kpele-Dutoe", locs: "Agbanon" },
+            { r: "Plateaux", p: "Kpele", c: "KPELE 2", can: "Kpele-Centre", locs: "Goudeve, Bagna-Bagna, Dodi-Avegame, Godzo, Kpele-Dougba, Kpeledzi, Tsadome, Votre" },
+
+            { r: "Plateaux", p: "Wawa", c: "WAWA 3", can: "Zogbegan", locs: "Benali, Zogbegan, Adossou, Klabe-Azafi, Klabe-Soto, Moabe, Otandjobo, Ougaza, Todome, Todome-Ewawa" },
+            { r: "Plateaux", p: "Wawa", c: "WAWA 3", can: "Doume", locs: "Doume, Agabe, Doume-Agotime, Doume-Elavagno, Doume-Voute, Doume-Wadanou, Enyalavasse" },
+
+
+
+
+            /* ============================================================
+           FIN DE LA ZONE D'INSERTION
+           ============================================================ */
+
+            // --- NOUVEAUX CANTONS (source: Décision CENI N°013/2025, CLC) ---
+            // ⚠️ Pour les cantons marqués '(commune par défaut)', la commune exacte n'a pas pu être
+            // déterminée avec certitude (le document ne donne que la préfecture) : à vérifier.
+            { r: "Kara", p: "Assoli", c: "Assoli ", can: "DAKO", locs: "Dako 3, Daoude, Kawa, Koudjodoulou, Kpengbele, Yara-Yara" },
+            { r: "Kara", p: "Bassar", c: "Bassar 1", can: "KALANGA", locs: "Boungba, Didjoyire, Inaba, Kalangha, Labante, M'Boumbiame, N'Grouli, Outchado, Sankpali" },
+            { r: "Plateaux", p: "AMOU", c: "AMOU 1", can: "ADIVA", locs: "Adiva" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "TCHAMBA", c: "TCHAMBA 1", can: "ADJEIDE", locs: "Gueri Malam, Kazakali, Kominide, N'Kronie, Torogode" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "AFAGNAGAN", locs: "Afagnagan, Agluoiduietnoou-Gba, Alouenou-Gba, Deveme, Dgeuvideimtoe, Djonoukouve, Gladjoe, Klikame, Matchale" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "AFAGNAN-", locs: "Adabadji-Kope, Weme" },  // commune par défaut - à vérifier
+            { r: "DAGL", p: "GOLFE", c: "Golfe 1", can: "AFLAO-", locs: "Aflao Sagbado, Apedokoe, Awatame, Lankouvi, Sagbado, Segbe, Wonyome" },  // commune par défaut - à vérifier
+            { r: "Kara", p: "Bassar", c: "Bassar 1", can: "AFOWOU", locs: "Afohou Kawa, Fonao, Kagnalim, Kagninda, Kaliada, Kalide, Kayamde, Lama Tessi, Leleda, Meatchide, Sanda Afohou" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "AGFBALGETNAAN-", locs: "Adabadji-Kope, Afagnan-Gbleta, Agove, Amegbo-Kope, Houdjodeke, Kpota Hidome, Mome-Gbave, Weme" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "AGGBOLEMTEA-", locs: "Agome-Glozou" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "AGGLOOUMZEO-U", locs: "Agome-Glozou, Alouenou-Kpeteto, Gbandi" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 1", can: "AKEBOU", locs: "Agbedji, Anani Kope, Assanouboui, Assanoukoussie, Azigo, Dzakpodzi, Gnangbo, Kamina, Kamina-Barrage, Kpakpa Kpanou, Lakuda, Natchamba, Waaragni, Wawa Centre, Wawagni, Wawai, Wawai II, Wodagni" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "TCHAOUDJO", c: "TCHAOUDJO 1", can: "AMAIDE", locs: "Amaide, Amaoude, Amaoude-Mo, Tchamda" },  // commune par défaut - à vérifier
+            { r: "Kara", p: "Doufelgou", c: "Doufelgou 1", can: "ANIMA", locs: "Anima" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Haho", c: "Haho 1", can: "ATSAVE", locs: "Agbeveme, Agome, Agoto, Alado, Assoumanou Cope, Attitsohoe, Avedje, Deme, Deve, Djekloe, Guedeglele, Kloegname, Kokoudave, Kpedigni, Kpele, Kpevou, Lakoto, Lalekpe, Tako, Todome, Totave, Tsave, Yaogan-Kope" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Haho", c: "Haho 1", can: "AYITO", locs: "Agodome, Bayakope, Etoe, Haito, Hayefo Kope, Komou-Kope, Kpegnon-Adja, Toklolo" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Ave", c: "Ave 1 ", can: "BADZA", locs: "Agoudza Badza, Agove Dokplala, Badza, Badza Dodzi, Bagbe Gare, Bagbe Route, Kuve, Wonougba" },  // commune par défaut - à vérifier
+            { r: "Kara", p: "Bassar", c: "Bassar 1", can: "BANGELI", locs: "Bikambombe, Bissibe, Bitchalambe, Biyakpabe, Djamblido, Djimba, Falakougmado, Kale, Kamou-Losso, Katcha -Konkomba, Katcha Losso, Kidjobon, Kissaboumbiki, Liwatchoule, Mile-Mile, Natchamba, Sansale, Tabale, Taboun" },  // commune par défaut - à vérifier
+            { r: "DAGL", p: "GOLFE", c: "Golfe 1", can: "BE-AFEDOME", locs: "Be-Ablogame, Be-Adakpame, Be-Adakpame-Kpota-, Be-Akodessewa, Be-Anfame, Be-Gbenyedzi, Be-Kanyikope, Be-Kpota, Be-Kpota-Adidome, Be-Souza-Netime N°1, Be-Souza-Netime N°2, Kagome, Kelegougan" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "BLITTA-GARE", locs: "Blitta-Campement, Blitta-Gare, Boukari Kope, Brigade, Kpawa, Pouwedeou, Tindjassi, Tondja, You" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "BLITTA-VILLAGE", locs: "Blitta-Losso, Blitta-Village, Finade, Kokonade, Tchangaide" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Kpele", c: "Kpele 1", can: "DAWLOTOU", locs: "Agoxoe, Avegame, Avekpo, Azioletsu, Dzave, Galikope, Guebakui, Guebakui-Barrage, Kpekpeta, Litito, Nunya, Nunyata, Todze, Toutou, Tutu-Zionou" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Ave", c: "Ave 1 ", can: "EDZI", locs: "Edzi" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "WAWA", c: "WAWA 1", can: "EFOUKPA", locs: "Enyawuali, Klabe Adape, Klabe Owlouka, Klabe-Apegame, Klabe-Efoukpa, Klabe-Lomnava" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "FIAGBE", locs: "Agbave, Assahoun-Fiagbe, Awoudikope, Dolohoe" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Kpele", c: "Kpele 1", can: "GBALEDZE", locs: "Kpele-Dafor, Kpele-Kponvie, Kpele-Tsavie" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Lacs", c: "Lacs 1", can: "GBODJOME", locs: "Afidegnigban, Agbata Allaglo, Agbata Lanzo, Agovoudou, Dague, Gbodjome, Kossi Agbavi, Kpogan, Togokome" },  // commune par défaut - à vérifier
+            { r: "Kara", p: "Bassar", c: "Bassar 1", can: "KAGBANDA", locs: "Agrigade, Aguinda, Akpandiyou Biyo, Bitankpare, Bouwai, Gnadeyo, Kagbanda, Koudjoukada, Koundoun, Kpankologh, Laouda, Samba, Sanda Kagbanda, Simbine, Soyaly, Tawade, Tchaboua, Tchakassou, Te" },  // commune par défaut - à vérifier
+            { r: "Kara", p: "Keran", c: "Keran 1", can: "KANDE", locs: "Agninkata, Anatoua, Anima, Ate-Kante, Atetou, Awonda, Deoute, Gnande, Goulbi, Hourta, Kante-Taar, Maye, Nabine, Nandjita, Narita, Saar, Tchichira Maison, Terite Maison, Wan-Wo, Worongo, Woumalou, Yotouwouro" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 1", can: "KANIAMBOUA", locs: "Kaniamboua" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 1", can: "KAZABOUA", locs: "Abidjande, Agombio, Agombio Mono, Kamboua, Kaza, Kazaboua, Kazawai, Kpelewai, Zongo" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "KGPLEOTUSZOOUU", locs: "Fiove" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "KLONOU", locs: "Klonou" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "KOFFITI", locs: "Agbandao, Babame, Edjarekope, Edomi, Fohe, Koffiti, Koulan, Malomi, Matekpo, Tchihe" },  // commune par défaut - à vérifier
+            { r: "Kara", p: "Dankpen", c: "Dankpen 1", can: "KOULFEIKOU", locs: "Koulfiekou, Kpankpande, Lithierso, Sekou" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Vo", c: "Vo 1", can: "MOME", locs: "Atchansi Centre, Atchansi Djokope, Atsansi Djita, Avegluidjigan, Gbedepeme, Gnito, Mome Hagou G/A, Mome Katihoe, Mome Wodzepe, Mome-Hounkpati" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Est-Mono", c: "Est-Mono 1", can: "MORETAN", locs: "Adjoakpekpe, Afidegnigba, Agan, Agbodrafo, Agodeka, Akou-Cope, Ankou-Cope, Atikparka, Atotoyi, Dapaong-Cope, Degou, Djouka, Fodjaye, Igbomedji 1, Ilekohan, Issati, Kagname, Kalmame, Kodjora Cope, Matragbadja, Modoukou, Moretan, Moretan 1, N'Konta, Niamtougo-Cope, Odjounagbo, Odokpo 1, Ofe-Agbede, Ofe-Awo, Okouta, Tchekele, Tchekita, Yebou-Yebou" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "WAWA", c: "WAWA 1", can: "N'KOUGNA", locs: "(Kokovena Kope), (Plateau), Bayome-Haut, Enawoe, Gbadi-N'Kougna, Gbadi-Onena, Gbedjimon-Bas, Otchona, Zomenou" },  // commune par défaut - à vérifier
+            { r: "Savanes", p: "Kpendjal Ouest", c: "Kpendjal Ouest 1", can: "NAYEGA", locs: "Boulbenli, Djabonli, Djapiengou, Djatougou, Djoimo, Gabounou, Gnoumbountigou, Kankampieni, Nakpatchal, Nakpatongou, Natare, Natatinga, Nayega, Nayega-Centre, Sogou, Tamatigou" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "NORD", locs: "Atidjime, Gamakui, Nyogbo Nord" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "AMOU", c: "AMOU 1", can: "OKPAHOE", locs: "Kodjo-Aza, Okpahoue, Ougbo, Ougbo-Ali" },  // commune par défaut - à vérifier
+            { r: "Savanes", p: "Kpendjal Ouest", c: "Kpendjal Ouest 1", can: "PAPRI", locs: "Bongongona, Djagoga, Gniyartigou, Kouampante, Kpendjaga, Kpendjaga-Haut, Nassiegou, Papri Centre, Salambagou, Tankpagli, Tomone 1, Toumporgou" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "MÔ", c: "MÔ 1", can: "SAIBOUDE", locs: "Kouida, Kpanzabade, Saiboude, Tchatchakou, Tchatou-Koura" },  // commune par défaut - à vérifier
+            { r: "Savanes", p: "Tandjoare", c: "Tandjoare 1", can: "SANGOU", locs: "Gbadakounkog, Gbankone, Sangou-Centre, Tomoni" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 1", can: "SESSARO", locs: "Alemade, Atanko, Djamde, Gnama-Gnamade, Kassikide, Kpendjeria, Pozinambo, Sassa, Sassa-Mono, Sessaro, Sessaro-Laoude, Sessaro-Mazada" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "Agou", c: "Agou 1", can: "SUD", locs: "Kluiwudeke, Nyifove, Nyogbo Sud" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "SOTOUBOUA", c: "SOTOUBOUA 1", can: "TABINDE", locs: "Badao-Mono, Bouale, Egbamde, Laoude-Somiede, Somieda, Tabinde, Tabinde Piyo, Tabinde Pouda, Tabinde Touyida, Tchoide, Tchoide G/C" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Bas-Mono", c: "Bas Mono 1", can: "TANNOU", locs: "Kpota, Tannou" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "TCHALOUDE", locs: "Kamboussa, Kaza Kope, Niki Niki 1, Tchaloude, Toule, Toulewai" },  // commune par défaut - à vérifier
+            { r: "DAGL", p: "AGOÉ-NYIVE", c: "Agoé-Nyivé 1", can: "TOGBLE", locs: "Agoe Amokui, Alinka, Cotocoli Zongo, Dikame, Fidokpui, Kpeoeyikope, Togblekope, Zongo Ahoussa" },  // commune par défaut - à vérifier
+            { r: "Plateaux", p: "AKEBOU", c: "AKEBOU 1", can: "VEH", locs: "Veh Karakonkon, Veh Lakpanou, Veh Mangoassi, Veh-N'Kougna-B" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "VILLAGE", locs: "Diguina-Anamagne, Pagala-Tomegbe, Pagala-Village" },  // commune par défaut - à vérifier
+            { r: "Maritime", p: "Lacs", c: "Lacs 1", can: "VILLE ANEHO", locs: "Kpota, Zebe" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "WARAGNI", locs: "Adjigbe, Waragni" },  // commune par défaut - à vérifier
+            { r: "Centrale", p: "BLITTA", c: "BLITTA 1", can: "YALOUMBE", locs: "Defale Kope, Defale Zongo, Poude, Yaloumbe" },  // commune par défaut - à vérifier
+        ];
+
+        // Nettoyage automatique des données (espaces parasites autour des noms)
+        // sans avoir à retoucher les centaines de lignes ci-dessus.
+        baseTogo.forEach(item => {
+            item.r = item.r.trim();
+            item.p = item.p.trim();
+            item.c = item.c.trim();
+            item.can = item.can.trim();
+            item.locs = item.locs.split(',').map(v => v.trim()).filter(Boolean).join(', ');
+        });
+
+        // Recherche insensible aux accents et à la casse (ex: "kpalime" trouve "Kpalimé")
+        function normaliser(texte) {
+            return texte
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .trim();
+        }
+
+        /* ============================================================
+           TOLÉRANCE AUX FAUTES DE FRAPPE (recherche floue)
+           ============================================================ */
+
+        // Distance de Levenshtein : nombre minimal de modifications
+        // (ajout, suppression, substitution) pour passer de a à b
+        function levenshtein(a, b) {
+            const m = a.length, n = b.length;
+            const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+            for (let i = 0; i <= m; i++) dp[i][0] = i;
+            for (let j = 0; j <= n; j++) dp[0][j] = j;
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    dp[i][j] = Math.min(
+                        dp[i - 1][j] + 1,
+                        dp[i][j - 1] + 1,
+                        dp[i - 1][j - 1] + cost
+                    );
+                }
+            }
+            return dp[m][n];
+        }
+
+        // Liste plate de toutes les localités (calculée une seule fois)
+        const toutesLesLocalites = [...new Set(
+            baseTogo.flatMap(item => item.locs.split(', '))
+        )];
+
+        // Renvoie les localités dont l'orthographe est proche de la saisie,
+        // même si elle contient des fautes de frappe.
+        function suggestionsApprochees(texteNormalise, limite = 8) {
+            if (texteNormalise.length < 3) return [];
+            const seuil = texteNormalise.length <= 5 ? 1 : (texteNormalise.length <= 9 ? 2 : 3);
+
+            const resultats = [];
+            for (const ville of toutesLesLocalites) {
+                const nomNorm = normaliser(ville);
+                // on compare sur une fenêtre de taille comparable pour rester rapide
+                const fenetre = nomNorm.slice(0, texteNormalise.length + seuil);
+                const dist = levenshtein(texteNormalise, fenetre);
+                if (dist <= seuil) {
+                    resultats.push({ ville, dist });
+                }
+            }
+            return resultats.sort((a, b) => a.dist - b.dist).slice(0, limite).map(r => r.ville);
+        }
+
+        const input = document.getElementById('champ');
+        const suggBox = document.getElementById('suggestions');
+        const matchesBox = document.getElementById('matches');
+        const resultBox = document.getElementById('resultat');
+        const mapDiv = document.getElementById('map');
+        const mapStatus = document.getElementById('map-status');
+        let dernierItem = null; // dernier résultat affiché, pour le bouton "Carte"
+        let mapInstance = null;
+        let markerInstance = null;
+
+        input.addEventListener('input', () => {
+            const texte = normaliser(input.value);
+            suggBox.innerHTML = '';
+            if (texte.length > 1) {
+                const suggestions = new Set();
+                baseTogo.forEach(item => {
+                    item.locs.split(', ').forEach(ville => {
+                        if (normaliser(ville).includes(texte)) {
+                            suggestions.add(ville);
+                        }
+                    });
+                });
+
+                // Si peu ou pas de correspondances directes, on tente la recherche
+                // floue pour rattraper les fautes de frappe (à partir de 3 lettres).
+                let approchees = [];
+                if (suggestions.size < 3 && texte.length >= 3) {
+                    approchees = suggestionsApprochees(texte).filter(v => !suggestions.has(v));
+                }
+
+                [...suggestions].slice(0, 30).forEach(ville => {
+                    const li = document.createElement('li');
+                    li.textContent = ville;
+                    li.onclick = () => { input.value = ville; suggBox.style.display = 'none'; valider(); };
+                    suggBox.appendChild(li);
+                });
+
+                approchees.forEach(ville => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `${ville} <span style="color:var(--text-muted); font-size:11px;">(orthographe proche)</span>`;
+                    li.onclick = () => { input.value = ville; suggBox.style.display = 'none'; valider(); };
+                    suggBox.appendChild(li);
+                });
+
+                suggBox.style.display = (suggestions.size > 0 || approchees.length > 0) ? 'block' : 'none';
+            } else {
+                suggBox.style.display = 'none';
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { valider(); }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-box')) {
+                suggBox.style.display = 'none';
+            }
+        });
+
+        // Barre de stats : nombre de cantons et de localités référencées
+        (function afficherStats() {
+            const totalLocs = baseTogo.reduce((sum, e) => sum + e.locs.split(',').length, 0);
+            const statsEl = document.getElementById('stats-bar');
+            if (statsEl) {
+                statsEl.textContent = `📍 ${baseTogo.length} cantons · ${totalLocs.toLocaleString('fr-FR')} localités référencées`;
+            }
+        })();
+
+        // Bouton "Carte" : n'affiche la carte que sur ce clic explicite (jamais automatiquement)
+        function rechercherEtVoirCarte() {
+            // Si un résultat est déjà affiché, on affiche juste sa carte (pas de nouvelle recherche,
+            // ce qui évite de perdre une sélection faite dans une liste à choix multiples).
+            if (resultBox.style.display !== 'none' && dernierItem) {
+                afficherCarte(dernierItem);
+                resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
+            valider();
+            setTimeout(() => {
+                if (dernierItem && resultBox.style.display !== 'none') {
+                    afficherCarte(dernierItem);
+                    resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else if (matchesBox.style.display !== 'none') {
+                    matchesBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 30);
+        }
+
+        function valider() {
+            const saisie = normaliser(input.value);
+            suggBox.style.display = 'none';
+            matchesBox.style.display = 'none';
+            matchesBox.innerHTML = '';
+            resultBox.style.display = 'none';
+
+            if (!saisie) return;
+
+            // On collecte TOUTES les correspondances (une même localité peut exister
+            // dans plusieurs cantons) au lieu de ne garder que la première trouvée.
+            const correspondances = [];
+            baseTogo.forEach(item => {
+                item.locs.split(', ').forEach(ville => {
+                    if (normaliser(ville) === saisie) {
+                        correspondances.push({ ...item, locPrecise: ville });
+                    }
+                });
+                if (normaliser(item.can) === saisie) {
+                    correspondances.push({ ...item, locPrecise: item.can + " (chef-lieu de canton)" });
+                }
+            });
+
+            if (correspondances.length === 0) {
+                // Aucune correspondance exacte : on propose les orthographes proches
+                // ("Vouliez-vous dire...?") avant d'afficher "Aucun résultat".
+                const proches = suggestionsApprochees(saisie, 5);
+                if (proches.length > 0) {
+                    afficherPropositions(proches);
+                } else {
+                    afficherAucunResultat();
+                }
+            } else if (correspondances.length === 1) {
+                afficherResultat(correspondances[0]);
+            } else {
+                afficherChoixMultiples(correspondances);
+            }
+        }
+
+        // Affiche des suggestions "Vouliez-vous dire...?" quand la saisie ne
+        // correspond exactement à aucune localité mais s'en approche.
+        function afficherPropositions(liste) {
+            resultBox.style.display = 'block';
+            mapDiv.style.display = 'none';
+            mapStatus.style.display = 'none';
+            dernierItem = null;
+            document.getElementById('res-loc').textContent = "Vouliez-vous dire ?";
+            document.getElementById('res-r').textContent = '—';
+            document.getElementById('res-p').textContent = '—';
+            document.getElementById('res-c').textContent = '—';
+            document.getElementById('res-can').textContent = '—';
+
+            matchesBox.style.display = 'block';
+            liste.forEach(ville => {
+                const li = document.createElement('li');
+                li.textContent = ville;
+                li.onclick = () => {
+                    input.value = ville;
+                    matchesBox.style.display = 'none';
+                    valider();
+                };
+                matchesBox.appendChild(li);
+            });
+        }
+
+        function afficherAucunResultat() {
+            resultBox.style.display = 'block';
+            mapDiv.style.display = 'none';
+            mapStatus.style.display = 'none';
+            dernierItem = null;
+            document.getElementById('res-loc').textContent = "Aucune localité trouvée";
+            document.getElementById('res-r').textContent = '—';
+            document.getElementById('res-p').textContent = '—';
+            document.getElementById('res-c').textContent = '—';
+            document.getElementById('res-can').textContent = '—';
+        }
+
+        function afficherChoixMultiples(liste) {
+            matchesBox.style.display = 'block';
+            liste.forEach(item => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${item.locPrecise}</strong><span>${item.can} — ${item.c}, ${item.p} (${item.r})</span>`;
+                li.onclick = () => {
+                    matchesBox.style.display = 'none';
+                    afficherResultat(item);
+                };
+                matchesBox.appendChild(li);
+            });
+        }
+
+        function afficherResultat(item) {
+            resultBox.style.display = 'block';
+            document.getElementById('res-loc').textContent = item.locPrecise;
+            document.getElementById('res-r').textContent = item.r;
+            document.getElementById('res-p').textContent = item.p;
+            document.getElementById('res-c').textContent = item.c;
+            document.getElementById('res-can').textContent = item.can;
+
+            // La carte n'est plus chargée automatiquement : on la garde en attente
+            // et on ne l'affiche que si l'utilisateur clique sur le bouton "Carte".
+            dernierItem = item;
+            mapDiv.style.display = 'none';
+            mapStatus.style.display = 'block';
+            mapStatus.textContent = '🗺️ Cliquez sur "Carte" pour voir la position sur la carte';
+        }
+
+        // Géolocalisation de la localité via l'API Nominatim (OpenStreetMap), avec
+        // repli automatique au niveau du canton si la localité précise n'est pas référencée.
+        async function afficherCarte(item) {
+            mapStatus.style.display = 'block';
+
+            if (!navigator.onLine) {
+                mapDiv.style.display = 'none';
+                mapStatus.textContent = "🔌 Vous êtes hors-ligne — la carte s'affichera automatiquement une fois la connexion rétablie.";
+                const surReconnexion = () => { window.removeEventListener('online', surReconnexion); afficherCarte(item); };
+                window.addEventListener('online', surReconnexion);
+                return;
+            }
+
+            mapStatus.textContent = '📍 Recherche de la position...';
+
+            try {
+                const nomLoc = item.locPrecise.replace(/\s*\(chef-lieu de canton\)/, '');
+                let coords = await geocoder(`${nomLoc}, ${item.can}, ${item.p}, Togo`);
+                let precision = '📍 Position trouvée';
+
+                if (!coords) {
+                    coords = await geocoder(`${item.can}, ${item.p}, Togo`);
+                    precision = '📍 Position approximative (niveau canton)';
+                }
+                if (!coords) {
+                    coords = await geocoder(`${item.p}, Togo`);
+                    precision = '📍 Position approximative (niveau préfecture)';
+                }
+
+                if (coords) {
+                    afficherPointSurCarte(coords.lat, coords.lon, nomLoc);
+                    mapStatus.textContent = precision;
+                } else {
+                    mapDiv.style.display = 'none';
+                    mapStatus.textContent = "Position introuvable sur la carte pour cette localité.";
+                }
+            } catch (e) {
+                mapDiv.style.display = 'none';
+                mapStatus.textContent = "⚠️ Impossible de contacter le service de cartographie. Nouvelle tentative dans 5s...";
+                setTimeout(() => afficherCarte(item), 5000);
+            }
+        }
+
+        async function geocoder(requete) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(requete)}`;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            try {
+                const rep = await fetch(url, { headers: { 'Accept-Language': 'fr' }, signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!rep.ok) return null;
+                const data = await rep.json();
+                if (data && data.length > 0) {
+                    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+                }
+                return null;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        function afficherPointSurCarte(lat, lon, label) {
+            mapDiv.style.display = 'block';
+            if (!mapInstance) {
+                mapInstance = L.map(mapDiv).setView([lat, lon], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 18,
+                }).addTo(mapInstance);
+                markerInstance = L.marker([lat, lon]).addTo(mapInstance);
+            } else {
+                mapInstance.setView([lat, lon], 13);
+                markerInstance.setLatLng([lat, lon]);
+            }
+            markerInstance.bindPopup(label).openPopup();
+            setTimeout(() => mapInstance.invalidateSize(), 150);
+        }
+    </script>
+
+</body>
+
+</html>
