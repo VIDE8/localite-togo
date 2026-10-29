@@ -557,7 +557,7 @@
 <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
           // Une nouvelle version du sw.js a été trouvée et installée en arrière-plan :
           // on prévient l'utilisateur au lieu de recharger silencieusement.
           reg.addEventListener('updatefound', () => {
@@ -568,6 +568,14 @@
                 document.getElementById('update-banner').classList.add('open');
               }
             });
+          });
+
+          // Vérifie activement au chargement, au lieu d'attendre le check auto du navigateur (~24h)
+          reg.update();
+
+          // Et re-vérifie quand l'utilisateur revient sur l'onglet après un moment
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') reg.update();
           });
         }).catch(console.error);
       });
