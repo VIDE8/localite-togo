@@ -1,4 +1,4 @@
-const CACHE_NAME = 'localite-togo-v3';
+const CACHE_NAME = 'localite-togo-v4';
 // Astuce : incrémentez ce numéro (v3 -> v4...) à chaque déploiement
 // pour forcer le renouvellement du cache.
 const ASSETS = [
